@@ -19,11 +19,11 @@ namespace ApiPujas.Models
         [Required]
         public string Password { get; set; }
         [Required]
-        public DateTime Register_date { get; set; }
-        [Required]
-        public float Reputation { get; set; }
-        [Required]
-        public Boolean Verificated { get; set; }
+        public DateTime Register_date { get; set; } = DateTime.Now;
+
+
+        public float Reputation { get; set; } = 0;
+        public Boolean Verificated { get; set; } = false;
 
 
 
