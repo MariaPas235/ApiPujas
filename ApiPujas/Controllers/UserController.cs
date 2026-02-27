@@ -1,7 +1,11 @@
 ﻿using ApiPujas.Data;
 using ApiPujas.Models;
 using ApiPujas.Models.Dto;
+using Azure;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using BCrypt.Net; // No olvides este using
+
 
 namespace ApiPujas.Controllers
 {
@@ -47,20 +51,29 @@ namespace ApiPujas.Controllers
         /// <param name="user"></param>
         /// <returns></returns>
 
+
         [HttpPost("PostUser")]
         public ResponseDto PostUsers([FromBody] User user)
         {
             try
             {
+
+                user.Password = BCrypt.Net.BCrypt.HashPassword(user.Password); 
+
                 _context.Users.Add(user);
                 _context.SaveChanges();
 
+
+                user.Password = null;
+
                 _response.Data = user;
+                _response.IsSuccess = true;
+                _response.Message = "Usuario registrado correctamente";
             }
             catch (Exception ex)
             {
                 _response.IsSuccess = false;
-                _response.Message = ex.Message;
+                _response.Message = "Error al registrar: " + ex.Message;
             }
             return _response;
         }
@@ -113,28 +126,19 @@ namespace ApiPujas.Controllers
         /// <param name="loginDto"></param>
         /// <returns></returns>
         [HttpPost("Login")]
-        public ResponseDto Login([FromBody] LoginRequestDto loginDto)
+        public ResponseDto Login([FromBody] LoginRequestDto login)
         {
-            try
-            {
-                var user = _context.Users.FirstOrDefault(u => u.Email.ToLower() == loginDto.Email.ToLower());
+            var user = _context.Users.FirstOrDefault(u => u.Email == login.Email);
 
-                if (user == null || user.Password != loginDto.Password)
-                {
-                    _response.IsSuccess = false;
-                    _response.Message = "Email o contraseña incorrectos.";
-                    return _response;
-                }
-
-                _response.IsSuccess = true;
-                _response.Data = user;
-                _response.Message = "Login exitoso.";
-            }
-            catch (Exception ex)
+            if (user == null || !BCrypt.Net.BCrypt.Verify(login.Password, user.Password))
             {
                 _response.IsSuccess = false;
-                _response.Message = ex.Message;
+                _response.Message = "Email o contraseña incorrectos";
+                return _response;
             }
+
+            _response.IsSuccess = true;
+            _response.Data = user; 
             return _response;
         }
     }
