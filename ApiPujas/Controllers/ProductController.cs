@@ -19,7 +19,6 @@ namespace ApiPujas.Controllers
             _response = new ResponseDto();
         }
 
-        // Endpoint para obtener productos aleatorios
         [HttpGet("GetRandom")]
         public ResponseDto GetRandomProducts([FromQuery] int count = 10)
         {
