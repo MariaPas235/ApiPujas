@@ -41,10 +41,10 @@ namespace ApiPujas.Models
         public long UserId { get; set; }
 
         [ForeignKey("UserId")]
-        public User User { get; set; }
+        public User? User { get; set; }
 
         // Colección de Bids asociadas a este producto
-        public ICollection<Bid> Bids { get; set; }
+        public ICollection<Bid>? Bids { get; set; }
 
         // Opcional: colección de Valorations asociadas al producto, si quieres
         // public ICollection<Valoration> Valorations { get; set; }

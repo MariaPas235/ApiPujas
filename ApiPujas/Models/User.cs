@@ -18,6 +18,9 @@ namespace ApiPujas.Models
         public string Phone { get; set; }
         [Required]
         public string Password { get; set; }
+
+        [Required]
+        public string Address { get; set; }
         [Required]
         public DateTime Register_date { get; set; } = DateTime.Now;
 
