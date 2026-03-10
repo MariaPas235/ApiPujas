@@ -1,17 +1,15 @@
 ﻿using ApiPujas.Data;
 using ApiPujas.Models;
 using ApiPujas.Models.Dto;
-using Azure;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using BCrypt.Net; // No olvides este using
-
+using BCrypt.Net;
 
 namespace ApiPujas.Controllers
 {
-    [Route("/api/[Controller]")]
+    [Route("api/[controller]")]
     [ApiController]
-    public class UserController : Controller
+    public class UserController : ControllerBase
     {
         private readonly AppDbContext _context;
         private ResponseDto _response;
@@ -20,21 +18,16 @@ namespace ApiPujas.Controllers
         {
             _context = context;
             _response = new ResponseDto();
-
         }
 
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <returns></returns>
         [HttpGet("GetUsers")]
         public ResponseDto GetUsers()
         {
             try
             {
-                IEnumerable<User> users = _context.Users.ToList();
+                var users = _context.Users.ToList();
                 _response.Data = users;
+                _response.IsSuccess = true;
             }
             catch (Exception ex)
             {
@@ -42,29 +35,20 @@ namespace ApiPujas.Controllers
                 _response.Message = ex.Message;
             }
             return _response;
-
         }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="user"></param>
-        /// <returns></returns>
-
 
         [HttpPost("PostUser")]
         public ResponseDto PostUsers([FromBody] User user)
         {
             try
             {
-
-                user.Password = BCrypt.Net.BCrypt.HashPassword(user.Password); 
+                // Encriptar contraseña antes de guardar
+                user.Password = BCrypt.Net.BCrypt.HashPassword(user.Password);
 
                 _context.Users.Add(user);
                 _context.SaveChanges();
 
-
-                user.Password = null;
+                user.Password = null; // No devolver la contraseña en la respuesta
 
                 _response.Data = user;
                 _response.IsSuccess = true;
@@ -77,14 +61,6 @@ namespace ApiPujas.Controllers
             }
             return _response;
         }
-
-
-        /// <summary>
-        /// Función para buscar un Usuario en la BD segun el parametro enviado, permite Name, Email, Phone y Id, este ultimo es casteado de String a int
-        /// </summary>
-        /// <param name="searchTerm"> Termino por el cual se encontrará el usuario (Name, Email, Phone, Id) </param>
-        /// <returns></returns>
-        /// 
 
         [HttpGet("GetUsersByTerm/{searchTerm}")]
         public ResponseDto GetUsersByTerm(string searchTerm)
@@ -104,7 +80,6 @@ namespace ApiPujas.Controllers
                 {
                     _response.IsSuccess = false;
                     _response.Message = "No se encontraron usuarios.";
-                    _response.Data = null;
                     return _response;
                 }
 
@@ -120,32 +95,29 @@ namespace ApiPujas.Controllers
             return _response;
         }
 
-
-
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="loginDto"></param>
-        /// <returns></returns>
         [HttpPost("Login")]
         public ResponseDto Login([FromBody] LoginRequestDto login)
         {
-            var user = _context.Users.FirstOrDefault(u => u.Email == login.Email);
+            try
+            {
+                var user = _context.Users.FirstOrDefault(u => u.Email == login.Email);
 
-            if (user == null || !BCrypt.Net.BCrypt.Verify(login.Password, user.Password))
+                if (user == null || !BCrypt.Net.BCrypt.Verify(login.Password, user.Password))
+                {
+                    _response.IsSuccess = false;
+                    _response.Message = "Email o contraseña incorrectos";
+                    return _response;
+                }
+
+                _response.IsSuccess = true;
+                _response.Data = user;
+            }
+            catch (Exception ex)
             {
                 _response.IsSuccess = false;
-                _response.Message = "Email o contraseña incorrectos";
-                return _response;
+                _response.Message = ex.Message;
             }
-
-            _response.IsSuccess = true;
-            _response.Data = user; 
             return _response;
         }
-
-
     }
-   
-
 }

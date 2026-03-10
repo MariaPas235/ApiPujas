@@ -26,7 +26,7 @@ namespace ApiPujas.Controllers
             try
             {
                 var products = _context.Products
-                    .Where(p => p.End_date > DateTime.Now)
+                    .Where(p => p.EndDate > DateTime.Now)
                     .AsEnumerable()
                     .OrderBy(p => Guid.NewGuid())
                     .Take(count)
@@ -46,18 +46,16 @@ namespace ApiPujas.Controllers
         [HttpGet("GetProductsByUser/{userId}")]
         public ResponseDto GetProductsByUser(int userId)
         {
-            var _response = new ResponseDto();
             try
             {
                 var productList = _context.Products
-                    .Where(p => p.UserId == userId)
+                    .Where(p => p.SellerId == userId)
                     .ToList();
 
                 if (productList == null || !productList.Any())
                 {
                     _response.IsSuccess = false;
                     _response.Message = "Este usuario no tiene productos registrados.";
-                    _response.Data = null;
                     return _response;
                 }
 
@@ -76,49 +74,47 @@ namespace ApiPujas.Controllers
         [HttpGet("GetProductsByUserAndStatus/{userId}/{status}")]
         public ResponseDto GetProductsByUserAndStatus(int userId, string status)
         {
-            var response = new ResponseDto();
             try
             {
-                // 1. Intentamos convertir el 'status' al Enum ProductState
-                // Esto permite que el usuario envíe "1", "Activo" o "activo"
+                // Intentamos convertir el string 'status' al Enum ProductState
                 if (!Enum.TryParse<ProductState>(status, true, out var stateEnum))
                 {
-                    response.IsSuccess = false;
-                    response.Message = $"El estado '{status}' no es válido.";
-                    return response;
+                    _response.IsSuccess = false;
+                    _response.Message = $"El estado '{status}' no es un estado de producto válido.";
+                    return _response;
                 }
 
-                // 2. Filtramos por el usuario Y por el estado
+                // Filtramos por SellerId y por el Enum productState
                 var products = _context.Products
-                    .Where(p => p.UserId == userId && p.State == stateEnum)
+                    .Where(p => p.SellerId == userId && p.productState == stateEnum)
                     .ToList();
 
                 if (products == null || !products.Any())
                 {
-                    response.IsSuccess = false;
-                    response.Message = $"No se encontraron productos para el usuario {userId} con estado {stateEnum}.";
-                    return response;
+                    _response.IsSuccess = false;
+                    _response.Message = $"No se encontraron productos para el usuario {userId} con estado {stateEnum}.";
+                    return _response;
                 }
 
-                response.IsSuccess = true;
-                response.Data = products;
-                response.Message = $"Se encontraron {products.Count} productos.";
+                _response.IsSuccess = true;
+                _response.Data = products;
+                _response.Message = $"Se encontraron {products.Count} productos.";
             }
             catch (Exception ex)
             {
-                response.IsSuccess = false;
-                response.Message = "Error: " + ex.Message;
+                _response.IsSuccess = false;
+                _response.Message = "Error: " + ex.Message;
             }
-            return response;
+            return _response;
         }
-
 
         [HttpPost]
         public async Task<ResponseDto> Post([FromBody] Product product)
         {
             try
             {
-                ModelState.Remove("User");
+                // Limpiamos las propiedades de navegación para evitar errores de validación del ModelState
+                ModelState.Remove("Seller");
                 ModelState.Remove("Bids");
 
                 if (!ModelState.IsValid)
@@ -137,12 +133,11 @@ namespace ApiPujas.Controllers
             catch (Exception ex)
             {
                 _response.IsSuccess = false;
-                _response.Message = ex.Message;
+                // Si hay un error de base de datos, mostramos el mensaje de la excepción interna (InnerException)
+                _response.Message = ex.InnerException != null ? ex.InnerException.Message : ex.Message;
             }
 
             return _response;
         }
-
     }
-
 }
