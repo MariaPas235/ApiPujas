@@ -1,4 +1,5 @@
-﻿using System;
+﻿using ApiPujas.Enums;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -35,7 +36,7 @@ namespace ApiPujas.Models
         public DateTime End_date { get; set; }
 
         [Required]
-        public string State { get; set; }
+        public ProductState State { get; set; }
 
         [Required]
         public long UserId { get; set; }
