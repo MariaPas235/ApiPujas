@@ -42,12 +42,41 @@ namespace ApiPujas.Controllers
             return _response;
         }
 
+        [HttpGet("GetProductsByUser/{userId}")]
+        public ResponseDto GetProductsByUser(int userId)
+        {
+            var _response = new ResponseDto();
+            try
+            {
+                var productList = _context.Products
+                    .Where(p => p.UserId == userId)
+                    .ToList();
+
+                if (productList == null || !productList.Any())
+                {
+                    _response.IsSuccess = false;
+                    _response.Message = "Este usuario no tiene productos registrados.";
+                    _response.Data = null;
+                    return _response;
+                }
+
+                _response.IsSuccess = true;
+                _response.Data = productList;
+                _response.Message = $"Se encontraron {productList.Count} productos.";
+            }
+            catch (Exception ex)
+            {
+                _response.IsSuccess = false;
+                _response.Message = "Error al obtener productos: " + ex.Message;
+            }
+            return _response;
+        }
+
         [HttpPost]
         public async Task<ResponseDto> Post([FromBody] Product product)
         {
             try
             {
-                // Ignoramos la validación de objetos de relación
                 ModelState.Remove("User");
                 ModelState.Remove("Bids");
 
