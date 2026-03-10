@@ -36,28 +36,35 @@ namespace ApiPujas.Controllers
             }
             return _response;
         }
-
         [HttpPost("PostUser")]
         public ResponseDto PostUsers([FromBody] User user)
         {
             try
             {
-                // Encriptar contraseña antes de guardar
-                user.Password = BCrypt.Net.BCrypt.HashPassword(user.Password);
+                // Forzamos la limpieza de las propiedades de navegación para que el validador no se queje
+                ModelState.Remove("Products");
+                ModelState.Remove("Bids");
 
+                if (!ModelState.IsValid)
+                {
+                    _response.IsSuccess = false;
+                    _response.Message = "Datos inválidos";
+                    return _response;
+                }
+
+                user.Password = BCrypt.Net.BCrypt.HashPassword(user.Password);
                 _context.Users.Add(user);
                 _context.SaveChanges();
 
-                user.Password = null; // No devolver la contraseña en la respuesta
-
+                user.Password = null;
                 _response.Data = user;
                 _response.IsSuccess = true;
-                _response.Message = "Usuario registrado correctamente";
             }
             catch (Exception ex)
             {
                 _response.IsSuccess = false;
-                _response.Message = "Error al registrar: " + ex.Message;
+                // Aquí verás el error real si falta una columna o el email está duplicado
+                _response.Message = "Error: " + (ex.InnerException?.Message ?? ex.Message);
             }
             return _response;
         }
