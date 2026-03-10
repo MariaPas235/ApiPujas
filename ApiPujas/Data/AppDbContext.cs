@@ -22,6 +22,20 @@ namespace ApiPujas.Data
         {
             base.OnModelCreating(modelBuilder);
 
+            // --- CONFIGURACIÓN PARA PRODUCTOS (ENUM A STRING) ---
+            // Esto evita el error de conversión de 'Activo' a int
+            modelBuilder.Entity<Product>()
+                .Property(p => p.State)
+                .HasConversion<string>();
+
+            // --- CONFIGURACIÓN PARA BIDS (PRECISIÓN DECIMAL) ---
+            // Esto elimina el warning de precisión del precio
+            modelBuilder.Entity<Bid>()
+                .Property(b => b.Price)
+                .HasColumnType("decimal(18,2)");
+
+            // --- RELACIONES EXISTENTES ---
+
             // Valorations: ya no hay cascada, NO ACTION
             modelBuilder.Entity<Valoration>()
                 .HasOne(v => v.UserBuyer)
@@ -46,7 +60,7 @@ namespace ApiPujas.Data
                 .HasOne(b => b.Product)
                 .WithMany(p => p.Bids)
                 .HasForeignKey(b => b.ProductId)
-                .OnDelete(DeleteBehavior.Cascade); // esta sí puede quedar
+                .OnDelete(DeleteBehavior.Cascade);
         }
     }
 }

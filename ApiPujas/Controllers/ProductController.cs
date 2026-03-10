@@ -1,4 +1,5 @@
 ﻿using ApiPujas.Data;
+using ApiPujas.Enums;
 using ApiPujas.Models;
 using ApiPujas.Models.Dto;
 using Microsoft.AspNetCore.Mvc;
@@ -71,6 +72,46 @@ namespace ApiPujas.Controllers
             }
             return _response;
         }
+
+        [HttpGet("GetProductsByUserAndStatus/{userId}/{status}")]
+        public ResponseDto GetProductsByUserAndStatus(int userId, string status)
+        {
+            var response = new ResponseDto();
+            try
+            {
+                // 1. Intentamos convertir el 'status' al Enum ProductState
+                // Esto permite que el usuario envíe "1", "Activo" o "activo"
+                if (!Enum.TryParse<ProductState>(status, true, out var stateEnum))
+                {
+                    response.IsSuccess = false;
+                    response.Message = $"El estado '{status}' no es válido.";
+                    return response;
+                }
+
+                // 2. Filtramos por el usuario Y por el estado
+                var products = _context.Products
+                    .Where(p => p.UserId == userId && p.State == stateEnum)
+                    .ToList();
+
+                if (products == null || !products.Any())
+                {
+                    response.IsSuccess = false;
+                    response.Message = $"No se encontraron productos para el usuario {userId} con estado {stateEnum}.";
+                    return response;
+                }
+
+                response.IsSuccess = true;
+                response.Data = products;
+                response.Message = $"Se encontraron {products.Count} productos.";
+            }
+            catch (Exception ex)
+            {
+                response.IsSuccess = false;
+                response.Message = "Error: " + ex.Message;
+            }
+            return response;
+        }
+
 
         [HttpPost]
         public async Task<ResponseDto> Post([FromBody] Product product)

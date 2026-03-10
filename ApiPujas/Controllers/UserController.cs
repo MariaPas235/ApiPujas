@@ -120,6 +120,8 @@ namespace ApiPujas.Controllers
             return _response;
         }
 
+
+
         /// <summary>
         /// 
         /// </summary>
@@ -141,6 +143,9 @@ namespace ApiPujas.Controllers
             _response.Data = user; 
             return _response;
         }
+
+
     }
+   
 
 }
