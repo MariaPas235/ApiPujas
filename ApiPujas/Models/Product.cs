@@ -26,11 +26,10 @@ namespace ApiPujas.Models
         public DateTime StartDate { get; set; }
 
         [Required]
-        public DateTime EndDate { get; set; } // Antes era End_date
+        public DateTime EndDate { get; set; }
 
         [Required]
-    
-        public ProductState productState { get; set; } // Antes era State
+        public ProductState productState { get; set; }
 
         public string? Photo { get; set; }
 
@@ -38,9 +37,9 @@ namespace ApiPujas.Models
         public string? Category { get; set; }
 
         [Required]
-        public int SellerId { get; set; } // Antes era UserId
+        public int SellerId { get; set; }
 
         [ForeignKey("SellerId")]
-        public virtual User Seller { get; set; }
+        public virtual User? Seller { get; set; } // ← ahora nullable
     }
 }
