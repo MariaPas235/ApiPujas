@@ -108,6 +108,16 @@ namespace ApiPujas.Controllers
             return _response;
         }
 
+        [HttpGet("GetProductsByState/{state}")]
+        public ResponseDto GetProductsByState(string state)
+        {
+            if (!Enum.TryParse<ProductState>(state, true, out var stateEnum))
+                return new ResponseDto { IsSuccess = false, Message = "Estado inválido" };
+
+            var products = _context.Products.Where(p => p.productState == stateEnum).ToList();
+            return new ResponseDto { IsSuccess = true, Data = products };
+        }
+
         [HttpPost]
         public async Task<ResponseDto> Post([FromBody] Product product)
         {
