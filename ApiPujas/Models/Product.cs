@@ -29,13 +29,13 @@ namespace ApiPujas.Models
         public DateTime EndDate { get; set; } // Antes era End_date
 
         [Required]
-        [MaxLength(50)]
+    
         public ProductState productState { get; set; } // Antes era State
 
-        public string Photo { get; set; }
+        public string? Photo { get; set; }
 
         [MaxLength(100)]
-        public string Category { get; set; }
+        public string? Category { get; set; }
 
         [Required]
         public int SellerId { get; set; } // Antes era UserId
