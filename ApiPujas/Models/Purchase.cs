@@ -1,32 +1,34 @@
-﻿using System.ComponentModel.DataAnnotations.Schema;
+﻿using ApiPujas.Enums;
+using System;
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace ApiPujas.Models
 {
     public class Purchase
     {
         [Key]
-        [Required]
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
-        public long Id { get; set; }
-
-        public DateTime Buy_date { get; set; }
-
-        public string State { get; set; }
-
-        [MaxLength(450)]
-        public string? Id_operation{ get; set; }
+        public int Id { get; set; }
 
         [Required]
+        public DateTime PurchaseDate { get; set; } = DateTime.UtcNow;
+
+        [Required]
+        public PurchaseState purchaseState { get; set; }
+
+        public int OperationId { get; set; }
         public string Data { get; set; }
+        public string OrderNumber { get; set; }
 
         [Required]
-        public string Order { get; set; }
+        public int BuyerId { get; set; }
+        [ForeignKey("BuyerId")]
+        public virtual User Buyer { get; set; }
 
-        public long UserIdBuyer { get; set; }
-
-
-        [ForeignKey("UserIdBuyer")]
-        public User User { get; set; }
+        [Required]
+        public int ProductId { get; set; }
+        [ForeignKey("ProductId")]
+        public virtual Product Product { get; set; }
     }
 }
