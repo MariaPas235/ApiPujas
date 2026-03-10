@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization; // <--- IMPORTANTE: Necesitas este using
 
 namespace ApiPujas.Models
 {
@@ -34,12 +35,17 @@ namespace ApiPujas.Models
 
         public bool IsVerified { get; set; }
 
-        public string Photo { get; set; }
+        public string? Photo { get; set; }
 
         [MaxLength(250)]
-        public string Address { get; set; }
+        public string? Address { get; set; }
 
-        public virtual ICollection<Product> Products { get; set; }
-        public virtual ICollection<Bid> Bids { get; set; }
+        // --- LAS PROPIEDADES DE NAVEGACIÓN ---
+
+        [JsonIgnore] // Evita que Swagger/JSON las pida como obligatorias
+        public virtual ICollection<Product> Products { get; set; } = new List<Product>();
+
+        [JsonIgnore] // Evita que Swagger/JSON las pida como obligatorias
+        public virtual ICollection<Bid> Bids { get; set; } = new List<Bid>();
     }
 }
