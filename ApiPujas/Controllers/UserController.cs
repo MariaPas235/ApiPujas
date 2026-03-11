@@ -36,6 +36,7 @@ namespace ApiPujas.Controllers
             }
             return _response;
         }
+
         [HttpPost("PostUser")]
         public ResponseDto PostUsers([FromBody] User user)
         {
