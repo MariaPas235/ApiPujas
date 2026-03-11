@@ -6,6 +6,5 @@
         Active,
         Closed,
         Sended
-
     }
 }

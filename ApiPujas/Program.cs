@@ -1,6 +1,6 @@
 using ApiPujas.Data;
 using Microsoft.EntityFrameworkCore;
-using System.Text.Json.Serialization; // ← necesario para JsonStringEnumConverter
+using System.Text.Json.Serialization;
 
 namespace ApiPujas
 {
@@ -10,11 +10,11 @@ namespace ApiPujas
         {
             var builder = WebApplication.CreateBuilder(args);
 
-            // Configuración de DbContext
+            // DbContext
             builder.Services.AddDbContext<AppDbContext>(options =>
                 options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-            // Configuración de CORS
+            // CORS
             builder.Services.AddCors(options =>
             {
                 options.AddPolicy("AllowAngular", policy =>
@@ -25,19 +25,21 @@ namespace ApiPujas
                 });
             });
 
-            // Configuración de controllers y JSON para enums como string
+            // Controllers + enums como string
             builder.Services.AddControllers()
                 .AddJsonOptions(options =>
                 {
                     options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
                 });
 
+            // 👇 servicio de subastas automáticas
+            builder.Services.AddHostedService<AuctionBackgroundService>();
+
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen();
 
             var app = builder.Build();
 
-            // Swagger en desarrollo
             if (app.Environment.IsDevelopment())
             {
                 app.UseSwagger();

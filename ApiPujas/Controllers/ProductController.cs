@@ -123,7 +123,6 @@ namespace ApiPujas.Controllers
         {
             try
             {
-                // Limpiamos las propiedades de navegación para evitar errores de validación del ModelState
                 ModelState.Remove("Seller");
                 ModelState.Remove("Bids");
 
@@ -143,7 +142,6 @@ namespace ApiPujas.Controllers
             catch (Exception ex)
             {
                 _response.IsSuccess = false;
-                // Si hay un error de base de datos, mostramos el mensaje de la excepción interna (InnerException)
                 _response.Message = ex.InnerException != null ? ex.InnerException.Message : ex.Message;
             }
 
