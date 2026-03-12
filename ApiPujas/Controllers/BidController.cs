@@ -82,6 +82,35 @@ namespace ApiPujas.Controllers
 
             return Ok(bid);
         }
+
+        [HttpGet("user-bids/{userId}")]
+        public async Task<IActionResult> GetUserBids(int userId)
+        {
+            // Buscamos todas las pujas del usuario
+            var userBids = await _context.Bids
+                .Where(b => b.BuyerId == userId)
+                .Include(b => b.Product) // Traemos la info del producto
+                .OrderByDescending(b => b.Date)
+                .ToListAsync();
+
+            // Agrupamos por producto para que cada uno salga una sola vez
+            var productsBidded = userBids
+                .GroupBy(b => b.ProductId)
+                .Select(group => new {
+                    ProductId = group.Key,
+                    ProductTitle = group.First().Product.Title,
+                    Photo = group.First().Product.Photo,
+                    Category = group.First().Product.Category,
+                    // Mi puja más alta en este producto
+                    MyHighestBid = group.Max(b => b.Amount),
+                    // Estado actual del producto
+                    Status = group.First().Product.productState.ToString(),
+                    EndDate = group.First().Product.EndDate
+                })
+                .ToList();
+
+            return Ok(productsBidded);
+        }
     }
 
 }
