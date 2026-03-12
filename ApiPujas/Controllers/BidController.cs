@@ -17,7 +17,30 @@ namespace ApiPujas.Controllers
         {
             _context = context;
         }
+        [HttpGet("status/{productId}")]
+        public async Task<ActionResult> GetStatus(int productId)
+        {
+            // Buscamos la puja más alta (o la más reciente por fecha)
+            var latestBid = await _context.Bids
+                .Include(b => b.Buyer) // Para tener el nombre del usuario
+                .Where(b => b.ProductId == productId)
+                .OrderByDescending(b => b.Amount) // Ordenamos por precio de mayor a menor
+                .FirstOrDefaultAsync(); // Nos quedamos solo con la primera (la más alta)
 
+            if (latestBid == null)
+            {
+                // Si no hay pujas, devolvemos el precio inicial del producto
+                var product = await _context.Products.FindAsync(productId);
+                return Ok(new { currentPrice = product.InitialPrice, lastBidderName = "Nadie aún" });
+            }
+
+            // Enviamos solo los dos datos que el Front necesita
+            return Ok(new
+            {
+                currentPrice = latestBid.Amount,
+                lastBidderName = latestBid.Buyer.Name
+            });
+        }
         [HttpPost]
         public async Task<IActionResult> CreateBid([FromBody] CreateBidDto dto)
         {
@@ -60,4 +83,5 @@ namespace ApiPujas.Controllers
             return Ok(bid);
         }
     }
+
 }
