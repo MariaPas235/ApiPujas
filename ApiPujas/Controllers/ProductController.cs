@@ -19,29 +19,44 @@ namespace ApiPujas.Controllers
             _context = context;
             _response = new ResponseDto();
         }
-
         [HttpGet("GetRandom")]
-        public ResponseDto GetRandomProducts([FromQuery] int count = 10)
-        {
-            try
-            {
-                var products = _context.Products
-                    .Where(p => p.EndDate > DateTime.Now)
-                    .AsEnumerable()
-                    .OrderBy(p => Guid.NewGuid())
-                    .Take(count)
-                    .ToList();
+public ResponseDto GetRandomProducts([FromQuery] int count = 10, [FromQuery] int? userId = null)
+{
+    try
+    {
+        // Definimos los estados que queremos mostrar
+        var allowedStates = new[] { ProductState.Active, ProductState.Scheduled };
 
-                _response.Data = products;
-                _response.IsSuccess = true;
-            }
-            catch (Exception ex)
-            {
-                _response.IsSuccess = false;
-                _response.Message = ex.Message;
-            }
-            return _response;
+        // Filtramos productos:
+        // - Estado Activo O Programado
+        // - Fecha de fin mayor a hoy (para no mostrar subastas terminadas)
+        var query = _context.Products
+            .Where(p => allowedStates.Contains(p.productState) && p.EndDate > DateTime.Now);
+
+        // Excluir productos del usuario que está logueado (si userId viene)
+        if (userId.HasValue)
+        {
+            query = query.Where(p => p.SellerId != userId.Value);
         }
+
+        // Orden aleatorio y límite
+        var products = query
+            .AsEnumerable() 
+            .OrderBy(p => Guid.NewGuid())
+            .Take(count)
+            .ToList();
+
+        _response.Data = products;
+        _response.IsSuccess = true;
+    }
+    catch (Exception ex)
+    {
+        _response.IsSuccess = false;
+        _response.Message = ex.Message;
+    }
+
+    return _response;
+}
 
         [HttpGet("GetProductsByUser/{userId}")]
         public ResponseDto GetProductsByUser(int userId)
@@ -105,6 +120,83 @@ namespace ApiPujas.Controllers
                 _response.IsSuccess = false;
                 _response.Message = "Error: " + ex.Message;
             }
+            return _response;
+        }
+        [HttpDelete("{id}")]
+        public async Task<ResponseDto> Delete(int id)
+        {
+            try
+            {
+                var existingProduct = await _context.Products.FindAsync(id);
+                if (existingProduct == null)
+                {
+                    _response.IsSuccess = false;
+                    _response.Message = "Producto no encontrado";
+                    return _response;
+                }
+
+                _context.Products.Remove(existingProduct);
+                await _context.SaveChangesAsync();
+
+                _response.IsSuccess = true;
+                _response.Message = "Producto eliminado correctamente";
+                _response.Data = existingProduct;
+            }
+            catch (Exception ex)
+            {
+                _response.IsSuccess = false;
+                _response.Message = ex.InnerException != null ? ex.InnerException.Message : ex.Message;
+            }
+
+            return _response;
+        }
+        [HttpPut("{id}")]
+        public async Task<ResponseDto> Put(int id, [FromBody] Product product)
+        {
+            try
+            {
+                ModelState.Remove("Seller");
+                ModelState.Remove("Bids");
+
+                if (!ModelState.IsValid)
+                {
+                    _response.IsSuccess = false;
+                    _response.Message = "Datos de entrada inválidos";
+                    return _response;
+                }
+
+                var existingProduct = await _context.Products.FindAsync(id);
+                if (existingProduct == null)
+                {
+                    _response.IsSuccess = false;
+                    _response.Message = "Producto no encontrado";
+                    return _response;
+                }
+
+                // Actualizar campos permitidos
+                existingProduct.Title = product.Title;
+                existingProduct.Description = product.Description;
+                existingProduct.InitialPrice = product.InitialPrice;
+                existingProduct.StartDate = product.StartDate;
+                existingProduct.EndDate = product.EndDate;
+                existingProduct.Photo = product.Photo;
+                existingProduct.Category = product.Category;
+
+                // Solo cambiar estado si viene
+                existingProduct.productState = product.productState;
+
+                _context.Products.Update(existingProduct);
+                await _context.SaveChangesAsync();
+
+                _response.IsSuccess = true;
+                _response.Data = existingProduct;
+            }
+            catch (Exception ex)
+            {
+                _response.IsSuccess = false;
+                _response.Message = ex.InnerException != null ? ex.InnerException.Message : ex.Message;
+            }
+
             return _response;
         }
 
