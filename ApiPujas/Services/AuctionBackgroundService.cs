@@ -1,76 +1,90 @@
-﻿using ApiPujas.Models;
+﻿using ApiPujas.Data;
+using ApiPujas.Models;
 using ApiPujas.Enums;
-using ApiPujas.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using System;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
-public class AuctionBackgroundService : BackgroundService
+namespace ApiPujas.Services
 {
-    private readonly IServiceScopeFactory _scopeFactory;
-
-    public AuctionBackgroundService(IServiceScopeFactory scopeFactory)
+    public class AuctionBackgroundService : BackgroundService
     {
-        _scopeFactory = scopeFactory;
-    }
+        private readonly IServiceScopeFactory _scopeFactory;
+        private readonly ILogger<AuctionBackgroundService> _logger;
 
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-    {
-        while (!stoppingToken.IsCancellationRequested)
+        public AuctionBackgroundService(IServiceScopeFactory scopeFactory, ILogger<AuctionBackgroundService> logger)
         {
-            using var scope = _scopeFactory.CreateScope();
-            var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            _scopeFactory = scopeFactory;
+            _logger = logger;
+        }
 
-            var now = DateTime.UtcNow;
+        protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+        {
+            _logger.LogInformation("[AuctionBackgroundService] Servicio iniciado a {time}", DateTime.UtcNow);
 
-            // Activar subastas
-            var productsToStart = await context.Products
-                .Where(p => p.StartDate <= now && p.productState == ProductState.Scheduled)
-                .ToListAsync();
-
-            foreach (var product in productsToStart)
+            while (!stoppingToken.IsCancellationRequested)
             {
-                product.productState = ProductState.Active;
-
-                bool hasBids = await context.Bids.AnyAsync(b => b.ProductId == product.Id);
-
-                if (!hasBids)
+                try
                 {
-                    var bid = new Bid
+                    using var scope = _scopeFactory.CreateScope();
+                    var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+                    var now = DateTime.UtcNow;
+                    _logger.LogInformation("[AuctionBackgroundService] Revisando productos a {time}", now);
+
+                    // 🔹 Activar subastas programadas
+                    var productsToStart = await context.Products
+                        .Where(p => p.StartDate <= now && p.productState == ProductState.Scheduled)
+                        .ToListAsync();
+
+                    foreach (var product in productsToStart)
                     {
-                        ProductId = product.Id,
-                        Amount = product.InitialPrice,
-                        Date = now,
-                        BuyerId = product.SellerId
-                    };
+                        _logger.LogInformation("[AuctionBackgroundService] Activando producto {id} ({title})", product.Id, product.Title);
+                        product.productState = ProductState.Active;
+                    }
 
-                    context.Bids.Add(bid);
+                    // 🔹 Cerrar subastas activas que ya terminaron
+                    var productsToClose = await context.Products
+                        .Where(p => p.EndDate <= now && p.productState == ProductState.Active)
+                        .ToListAsync();
+
+                    foreach (var product in productsToClose)
+                    {
+                        product.productState = ProductState.Closed;
+
+                        var winningBid = await context.Bids
+                            .Where(b => b.ProductId == product.Id)
+                            .OrderByDescending(b => b.Amount)
+                            .FirstOrDefaultAsync();
+
+                        if (winningBid != null)
+                        {
+                            _logger.LogInformation("[AuctionBackgroundService] Producto {id} cerrado. Ganador: Usuario {buyer} con {amount}",
+                                product.Id, winningBid.BuyerId, winningBid.Amount);
+                        }
+                        else
+                        {
+                            _logger.LogInformation("[AuctionBackgroundService] Producto {id} cerrado. Sin pujas.", product.Id);
+                        }
+                    }
+
+                    await context.SaveChangesAsync();
                 }
-            }
-
-            // Cerrar subastas
-            var productsToClose = await context.Products
-                .Where(p => p.EndDate <= now && p.productState == ProductState.Active)
-                .ToListAsync();
-
-            foreach (var product in productsToClose)
-            {
-                product.productState = ProductState.Closed;
-
-                var winningBid = await context.Bids
-                    .Where(b => b.ProductId == product.Id)
-                    .OrderByDescending(b => b.Amount)
-                    .FirstOrDefaultAsync();
-
-                if (winningBid != null)
+                catch (Exception ex)
                 {
-                    Console.WriteLine($"Producto {product.Id} ganado por usuario {winningBid.BuyerId} con {winningBid.Amount}");
+                    _logger.LogError(ex, "[AuctionBackgroundService] ERROR procesando subastas");
                 }
+
+                // Espera 30 segundos antes de revisar nuevamente
+                await Task.Delay(TimeSpan.FromSeconds(30), stoppingToken);
             }
 
-            await context.SaveChangesAsync();
-
-            await Task.Delay(TimeSpan.FromSeconds(30), stoppingToken);
+            _logger.LogInformation("[AuctionBackgroundService] Servicio detenido a {time}", DateTime.UtcNow);
         }
     }
 }
