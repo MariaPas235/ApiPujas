@@ -1,5 +1,6 @@
 ﻿    using ApiPujas.Data;
-    using ApiPujas.Models;
+using ApiPujas.Enums;
+using ApiPujas.Models;
     using ApiPujas.Models.Dto;
     using Microsoft.AspNetCore.Mvc;
     using Microsoft.EntityFrameworkCore;
