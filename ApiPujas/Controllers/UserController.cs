@@ -12,120 +12,159 @@ namespace ApiPujas.Controllers
     public class UserController : ControllerBase
     {
         private readonly AppDbContext _context;
-        private ResponseDto _response;
 
         public UserController(AppDbContext context)
         {
             _context = context;
-            _response = new ResponseDto();
         }
 
+        // =========================================
+        // GET ALL USERS
+        // =========================================
         [HttpGet("GetUsers")]
-        public ResponseDto GetUsers()
+        public async Task<IActionResult> GetUsers()
         {
             try
             {
-                var users = _context.Users.ToList();
-                _response.Data = users;
-                _response.IsSuccess = true;
-            }
-            catch (Exception ex)
-            {
-                _response.IsSuccess = false;
-                _response.Message = ex.Message;
-            }
-            return _response;
-        }
+                var users = await _context.Users
+                    .AsNoTracking()
+                    .ToListAsync();
 
-        [HttpPost("PostUser")]
-        public ResponseDto PostUsers([FromBody] User user)
-        {
-            try
-            {
-                // Forzamos la limpieza de las propiedades de navegación para que el validador no se queje
-                ModelState.Remove("Products");
-                ModelState.Remove("Bids");
-
-                if (!ModelState.IsValid)
+                return Ok(new
                 {
-                    _response.IsSuccess = false;
-                    _response.Message = "Datos inválidos";
-                    return _response;
-                }
-
-                user.Password = BCrypt.Net.BCrypt.HashPassword(user.Password);
-                _context.Users.Add(user);
-                _context.SaveChanges();
-
-                user.Password = null;
-                _response.Data = user;
-                _response.IsSuccess = true;
+                    isSuccess = true,
+                    data = users
+                });
             }
             catch (Exception ex)
             {
-                _response.IsSuccess = false;
-                // Aquí verás el error real si falta una columna o el email está duplicado
-                _response.Message = "Error: " + (ex.InnerException?.Message ?? ex.Message);
+                return StatusCode(500, new
+                {
+                    isSuccess = false,
+                    message = ex.Message
+                });
             }
-            return _response;
         }
 
+        // =========================================
+        // CREATE USER
+        // =========================================
+        [HttpPost("PostUser")]
+        public async Task<IActionResult> PostUser([FromBody] CreateUserDto dto)
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
+            var user = new User
+            {
+                Name = dto.Name,
+                Email = dto.Email,
+                Phone = dto.Phone,
+                Address = dto.Address,
+                Photo = dto.Photo,
+
+                // 🔐 AQUÍ SE HACE EL HASH (NO EN ANGULAR)
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password)
+            };
+
+            _context.Users.Add(user);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { isSuccess = true, data = user });
+        }
+
+        // =========================================
+        // SEARCH USERS
+        // =========================================
         [HttpGet("GetUsersByTerm/{searchTerm}")]
-        public ResponseDto GetUsersByTerm(string searchTerm)
+        public async Task<IActionResult> GetUsersByTerm(string searchTerm)
         {
             try
             {
                 int.TryParse(searchTerm, out int idBusqueda);
 
-                var users = _context.Users.Where(u =>
-                    u.Name.Contains(searchTerm) ||
-                    u.Email == searchTerm ||
-                    u.Phone == searchTerm ||
-                    u.Id == idBusqueda)
-                    .ToList();
+                var users = await _context.Users
+                    .AsNoTracking()
+                    .Where(u =>
+                        u.Name.Contains(searchTerm) ||
+                        u.Email.Contains(searchTerm) ||
+                        u.Phone.Contains(searchTerm) ||
+                        u.Id == idBusqueda)
+                    .ToListAsync();
 
-                if (users == null || !users.Any())
+                if (!users.Any())
                 {
-                    _response.IsSuccess = false;
-                    _response.Message = "No se encontraron usuarios.";
-                    return _response;
+                    return NotFound(new
+                    {
+                        isSuccess = false,
+                        message = "No se encontraron usuarios"
+                    });
                 }
 
-                _response.IsSuccess = true;
-                _response.Data = users;
-                _response.Message = $"Se encontraron {users.Count} resultados.";
+                return Ok(new
+                {
+                    isSuccess = true,
+                    count = users.Count,
+                    data = users
+                });
             }
             catch (Exception ex)
             {
-                _response.IsSuccess = false;
-                _response.Message = ex.Message;
+                return StatusCode(500, new
+                {
+                    isSuccess = false,
+                    message = ex.Message
+                });
             }
-            return _response;
         }
 
+        // =========================================
+        // LOGIN
+        // =========================================
         [HttpPost("Login")]
-        public ResponseDto Login([FromBody] LoginRequestDto login)
+        public async Task<IActionResult> Login([FromBody] LoginRequestDto login)
         {
             try
             {
-                var user = _context.Users.FirstOrDefault(u => u.Email == login.Email);
+                var user = await _context.Users
+                    .FirstOrDefaultAsync(u => u.Email == login.Email);
 
-                if (user == null || !BCrypt.Net.BCrypt.Verify(login.Password, user.Password))
+                if (user == null)
                 {
-                    _response.IsSuccess = false;
-                    _response.Message = "Email o contraseña incorrectos";
-                    return _response;
+                    return Unauthorized(new
+                    {
+                        isSuccess = false,
+                        message = "Email o contraseña incorrectos"
+                    });
                 }
 
-                _response.IsSuccess = true;
-                _response.Data = user;
+                bool passwordOk = BCrypt.Net.BCrypt.Verify(login.Password, user.PasswordHash);
+
+                if (!passwordOk)
+                {
+                    return Unauthorized(new
+                    {
+                        isSuccess = false,
+                        message = "Email o contraseña incorrectos"
+                    });
+                }
+
+                user.PasswordHash = null;
+
+                return Ok(new
+                {
+                    isSuccess = true,
+                    data = user
+                });
             }
             catch (Exception ex)
             {
-                _response.IsSuccess = false;
-                _response.Message = ex.Message;
+                return StatusCode(500, new
+                {
+                    isSuccess = false,
+                    message = ex.Message
+                });
             }
-            return _response;
         }
     }
 }

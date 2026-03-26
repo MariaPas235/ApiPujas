@@ -1,6 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using ApiPujas.Models;
-using ApiPujas.Enums; // Asegúrate de que tus Enums estén en este namespace
 using System.Linq;
 
 namespace ApiPujas.Data
@@ -9,7 +8,7 @@ namespace ApiPujas.Data
     {
         public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
 
-        // Tablas de la Base de Datos
+        // 🗄️ Tablas
         public DbSet<User> Users { get; set; }
         public DbSet<Product> Products { get; set; }
         public DbSet<Bid> Bids { get; set; }
@@ -20,7 +19,9 @@ namespace ApiPujas.Data
         {
             base.OnModelCreating(modelBuilder);
 
-            // 1. Configuración de precisión para todos los decimales (Dinero/Reputación)
+            // ===============================
+            // ⚙️ 1. Configuración global decimal
+            // ===============================
             foreach (var property in modelBuilder.Model.GetEntityTypes()
                 .SelectMany(t => t.GetProperties())
                 .Where(p => p.ClrType == typeof(decimal) || p.ClrType == typeof(decimal?)))
@@ -28,54 +29,78 @@ namespace ApiPujas.Data
                 property.SetColumnType("decimal(18,2)");
             }
 
-            // 2. Relación Producto -> Vendedor (User)
+            // ===============================
+            // 🔗 2. RELACIONES
+            // ===============================
+
+            // Product → Seller (User)
             modelBuilder.Entity<Product>()
                 .HasOne(p => p.Seller)
                 .WithMany(u => u.Products)
                 .HasForeignKey(p => p.SellerId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            // 3. Relación Puja -> Comprador (User)
+            // Bid → Buyer (User)
             modelBuilder.Entity<Bid>()
                 .HasOne(b => b.Buyer)
                 .WithMany(u => u.Bids)
                 .HasForeignKey(b => b.BuyerId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            // 4. Relación Puja -> Producto
+            // Bid → Product ✅ (IMPORTANTE: evita ProductId1)
             modelBuilder.Entity<Bid>()
                 .HasOne(b => b.Product)
-                .WithMany()
+                .WithMany(p => p.Bids)
                 .HasForeignKey(b => b.ProductId)
-                .OnDelete(DeleteBehavior.Cascade); // Si se borra el producto, se borran sus pujas
+                .OnDelete(DeleteBehavior.Cascade);
 
-            // 5. Relaciones de Valoración (Rating)
-            // Relación con el que califica (Buyer)
-            modelBuilder.Entity<Rating>()
-                .HasOne(r => r.Buyer)
-                .WithMany()
-                .HasForeignKey(r => r.BuyerId)
-                .OnDelete(DeleteBehavior.Restrict);
-
-            // Relación con el calificado (Seller)
-            modelBuilder.Entity<Rating>()
-                .HasOne(r => r.Seller)
-                .WithMany()
-                .HasForeignKey(r => r.SellerId)
-                .OnDelete(DeleteBehavior.Restrict);
-
-            // 6. Relaciones de Compra (Purchase)
+            // Purchase → Buyer
             modelBuilder.Entity<Purchase>()
                 .HasOne(p => p.Buyer)
                 .WithMany()
                 .HasForeignKey(p => p.BuyerId)
                 .OnDelete(DeleteBehavior.Restrict);
 
+            // Purchase → Product
             modelBuilder.Entity<Purchase>()
                 .HasOne(p => p.Product)
                 .WithMany()
                 .HasForeignKey(p => p.ProductId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            // Rating → Buyer
+            modelBuilder.Entity<Rating>()
+                .HasOne(r => r.Buyer)
+                .WithMany()
+                .HasForeignKey(r => r.BuyerId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Rating → Seller
+            modelBuilder.Entity<Rating>()
+                .HasOne(r => r.Seller)
+                .WithMany()
+                .HasForeignKey(r => r.SellerId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // ===============================
+            // ⚡ 3. ÍNDICES (CLAVE RENDIMIENTO)
+            // ===============================
+
+            modelBuilder.Entity<Bid>()
+                .HasIndex(b => b.BuyerId);
+
+            modelBuilder.Entity<Bid>()
+                .HasIndex(b => b.ProductId);
+
+            modelBuilder.Entity<Product>()
+                .HasIndex(p => p.SellerId);
+
+            modelBuilder.Entity<Product>()
+                .HasIndex(p => p.EndDate);
+
+            modelBuilder.Entity<User>()
+                .HasIndex(u => u.Email)
+                .IsUnique();
         }
     }
 }

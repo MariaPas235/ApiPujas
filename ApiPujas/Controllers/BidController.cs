@@ -4,6 +4,7 @@ using ApiPujas.Enums;
 using ApiPujas.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Diagnostics;
 
 namespace ApiPujas.Controllers
 {
@@ -17,35 +18,70 @@ namespace ApiPujas.Controllers
         {
             _context = context;
         }
+
+        // =========================================
+        // CURRENT STATUS (ULTRA OPTIMIZED)
+        // =========================================
         [HttpGet("status/{productId}")]
-        public async Task<ActionResult> GetStatus(int productId)
+        public async Task<IActionResult> GetStatus(int productId)
         {
-            // Buscamos la puja más alta (o la más reciente por fecha)
+            var product = await _context.Products
+                .AsNoTracking()
+                .Where(p => p.Id == productId)
+                .Select(p => new
+                {
+                    p.InitialPrice,
+                    p.productState,
+                    p.EndDate
+                })
+                .FirstOrDefaultAsync();
+
+            if (product == null)
+                return NotFound();
+
             var latestBid = await _context.Bids
-                .Include(b => b.Buyer) // Para tener el nombre del usuario
+                .AsNoTracking()
                 .Where(b => b.ProductId == productId)
-                .OrderByDescending(b => b.Amount) // Ordenamos por precio de mayor a menor
-                .FirstOrDefaultAsync(); // Nos quedamos solo con la primera (la más alta)
+                .OrderByDescending(b => b.Amount)
+                .Select(b => new
+                {
+                    b.Amount,
+                    BuyerName = b.Buyer.Name
+                })
+                .FirstOrDefaultAsync();
 
             if (latestBid == null)
             {
-                // Si no hay pujas, devolvemos el precio inicial del producto
-                var product = await _context.Products.FindAsync(productId);
-                return Ok(new { currentPrice = product.InitialPrice, lastBidderName = "Nadie aún" });
+                return Ok(new
+                {
+                    currentPrice = product.InitialPrice,
+                    lastBidderName = "Nadie aún"
+                });
             }
 
-            // Enviamos solo los dos datos que el Front necesita
             return Ok(new
             {
                 currentPrice = latestBid.Amount,
-                lastBidderName = latestBid.Buyer.Name
+                lastBidderName = latestBid.BuyerName
             });
         }
+
+        // =========================================
+        // CREATE BID (SAFE + FAST)
+        // =========================================
         [HttpPost]
         public async Task<IActionResult> CreateBid([FromBody] CreateBidDto dto)
         {
             var product = await _context.Products
-                .FirstOrDefaultAsync(p => p.Id == dto.ProductId);
+                .Where(p => p.Id == dto.ProductId)
+                .Select(p => new
+                {
+                    p.Id,
+                    p.InitialPrice,
+                    p.productState,
+                    p.EndDate
+                })
+                .FirstOrDefaultAsync();
 
             if (product == null)
                 return NotFound("Producto no encontrado");
@@ -58,15 +94,10 @@ namespace ApiPujas.Controllers
 
             var highestBid = await _context.Bids
                 .Where(b => b.ProductId == dto.ProductId)
-                .OrderByDescending(b => b.Amount)
-                .FirstOrDefaultAsync();
+                .MaxAsync(b => (decimal?)b.Amount) ?? product.InitialPrice;
 
-            decimal minAmount = highestBid != null
-                ? highestBid.Amount
-                : product.InitialPrice;
-
-            if (dto.Amount <= minAmount)
-                return BadRequest($"La puja debe ser mayor que {minAmount}");
+            if (dto.Amount <= highestBid)
+                return BadRequest($"La puja debe ser mayor que {highestBid}");
 
             var bid = new Bid
             {
@@ -77,40 +108,52 @@ namespace ApiPujas.Controllers
             };
 
             _context.Bids.Add(bid);
-
             await _context.SaveChangesAsync();
 
-            return Ok(bid);
+            return Ok(new
+            {
+                isSuccess = true,
+                data = bid
+            });
         }
 
+        // =========================================
+        // USER BIDS (FAST VERSION 🚀)
+        // =========================================
         [HttpGet("user-bids/{userId}")]
         public async Task<IActionResult> GetUserBids(int userId)
         {
-            // Buscamos todas las pujas del usuario
-            var userBids = await _context.Bids
-                .Where(b => b.BuyerId == userId)
-                .Include(b => b.Product) // Traemos la info del producto
-                .OrderByDescending(b => b.Date)
-                .ToListAsync();
+            var stopwatch = Stopwatch.StartNew();
 
-            // Agrupamos por producto para que cada uno salga una sola vez
-            var productsBidded = userBids
-                .GroupBy(b => b.ProductId)
-                .Select(group => new {
-                    ProductId = group.Key,
-                    ProductTitle = group.First().Product.Title,
-                    Photo = group.First().Product.Photo,
-                    Category = group.First().Product.Category,
-                    // Mi puja más alta en este producto
-                    MyHighestBid = group.Max(b => b.Amount),
-                    // Estado actual del producto
-                    Status = group.First().Product.productState.ToString(),
-                    EndDate = group.First().Product.EndDate
-                })
-                .ToList();
+            var result = await _context.Bids
+       .Where(b => b.BuyerId == userId)
+       .Include(b => b.Product)
+       .GroupBy(b => new
+       {
+           b.ProductId,
+           b.Product.Title,
+           b.Product.Photo,
+           b.Product.Category,
+           b.Product.productState,
+           b.Product.EndDate
+       })
+       .Select(g => new
+       {
+           ProductId = g.Key.ProductId,
+           ProductTitle = g.Key.Title,
+           Photo = g.Key.Photo,
+           Category = g.Key.Category,
+           MyHighestBid = g.Max(x => x.Amount),
+           Status = g.Key.productState.ToString(),
+           EndDate = g.Key.EndDate
+       })
+       .OrderByDescending(x => x.EndDate)
+       .ToListAsync();
 
-            return Ok(productsBidded);
+            stopwatch.Stop();
+            Console.WriteLine($"⏱️ USER BIDS QUERY: {stopwatch.ElapsedMilliseconds} ms");
+
+            return Ok(result);
         }
     }
-
 }

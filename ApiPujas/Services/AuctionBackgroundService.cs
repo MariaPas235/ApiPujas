@@ -1,6 +1,7 @@
 ﻿using ApiPujas.Data;
 using ApiPujas.Enums;
-using ApiPujas.Hubs; // Asegúrate de importar tu Hub
+using ApiPujas.Hubs;
+using ApiPujas.Models;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -17,7 +18,7 @@ namespace ApiPujas.Services
     {
         private readonly IServiceScopeFactory _scopeFactory;
         private readonly ILogger<AuctionBackgroundService> _logger;
-        private readonly IHubContext<AuctionHub> _hubContext; // Inyectamos el Hub
+        private readonly IHubContext<AuctionHub> _hubContext;
 
         public AuctionBackgroundService(
             IServiceScopeFactory scopeFactory,
@@ -42,33 +43,90 @@ namespace ApiPujas.Services
 
                     var now = DateTime.UtcNow;
 
-                    // Traemos productos que cambian de estado
                     var productsToUpdate = await context.Products
-                        .Where(p => (p.productState == ProductState.Scheduled && p.StartDate <= now)
-                                 || (p.productState == ProductState.Active && p.EndDate <= now))
+                        .Where(p =>
+                            (p.productState == ProductState.Scheduled && p.StartDate <= now) ||
+                            (p.productState == ProductState.Active && p.EndDate <= now))
                         .ToListAsync();
 
                     if (productsToUpdate.Any())
                     {
                         foreach (var product in productsToUpdate)
                         {
-                            if (product.productState == ProductState.Scheduled)
+                            // 🟡 PASAR A ACTIVO
+                            if (product.productState == ProductState.Scheduled &&
+                                product.StartDate <= now)
                             {
                                 product.productState = ProductState.Active;
-                                _logger.LogInformation("[SignalR] Producto {id} pasado a ACTIVO", product.Id);
+
+                                _logger.LogInformation(
+                                    "[SignalR] Producto {id} pasado a ACTIVO",
+                                    product.Id);
                             }
-                            else if (product.productState == ProductState.Active)
+
+                            // 🔴 CERRAR SUBASTA
+                            else if (product.productState == ProductState.Active &&
+                                     product.EndDate <= now)
                             {
                                 product.productState = ProductState.Closed;
-                                _logger.LogInformation("[SignalR] Producto {id} pasado a CERRADO", product.Id);
+
+                                _logger.LogInformation(
+                                    "[SignalR] Producto {id} pasado a CERRADO",
+                                    product.Id);
+
+                                // =========================
+                                // 🧠 1. PUJA GANADORA
+                                // =========================
+                                var winningBid = await context.Bids
+                                    .Where(b => b.ProductId == product.Id)
+                                    .OrderByDescending(b => b.Amount)
+                                    .ThenBy(b => b.Date)
+                                    .FirstOrDefaultAsync();
+
+                                // =========================
+                                // 💰 2. CREAR PURCHASE
+                                // =========================
+                                if (winningBid != null)
+                                {
+                                    var alreadyExists = await context.Purchases
+                                        .AnyAsync(p => p.ProductId == product.Id);
+
+                                    if (!alreadyExists)
+                                    {
+                                        var purchase = new Purchase
+                                        {
+                                            PurchaseDate = DateTime.UtcNow,
+                                            purchaseState = PurchaseState.Pending,
+                                            ProductId = product.Id,
+                                            BuyerId = winningBid.BuyerId,
+                                            OrderNumber = Guid.NewGuid().ToString(),
+                                            OperationId = 0,
+                                            Data = null
+                                        };
+
+                                        context.Purchases.Add(purchase);
+
+                                        _logger.LogInformation(
+                                            "[PURCHASE] Creada compra para producto {id} - buyer {buyer}",
+                                            product.Id,
+                                            winningBid.BuyerId);
+                                    }
+                                }
+                                else
+                                {
+                                    _logger.LogInformation(
+                                        "[PURCHASE] Producto {id} sin pujas",
+                                        product.Id);
+                                }
                             }
                         }
 
+                        // 💾 Guardar TODO (estado + purchases)
                         await context.SaveChangesAsync();
 
-                        // 🔥 NOTIFICACIÓN POR SIGNALR
-                        // Enviamos un evento llamado "RefreshProducts" a todos los conectados
+                        // 📡 SIGNALR refresh frontend
                         await _hubContext.Clients.All.SendAsync("RefreshProducts", stoppingToken);
+
                         _logger.LogInformation("[SignalR] Notificación enviada a todos los clientes.");
                     }
                 }
@@ -77,7 +135,7 @@ namespace ApiPujas.Services
                     _logger.LogError(ex, "[AuctionBackgroundService] ERROR");
                 }
 
-                await Task.Delay(TimeSpan.FromSeconds(1), stoppingToken);
+                await Task.Delay(TimeSpan.FromSeconds(30), stoppingToken);
             }
         }
     }

@@ -1,14 +1,12 @@
 ﻿using ApiPujas.Enums;
 using System;
 using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
 
 namespace ApiPujas.Models
 {
     public class Purchase
     {
         [Key]
-        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public int Id { get; set; }
 
         [Required]
@@ -18,17 +16,21 @@ namespace ApiPujas.Models
         public PurchaseState purchaseState { get; set; }
 
         public int OperationId { get; set; }
-        public string Data { get; set; }
-        public string OrderNumber { get; set; }
 
+        [MaxLength(500)]
+        public string? Data { get; set; }
+
+        [MaxLength(100)]
+        public string? OrderNumber { get; set; }
+
+        // Buyer
         [Required]
         public int BuyerId { get; set; }
-        [ForeignKey("BuyerId")]
-        public virtual User Buyer { get; set; }
+        public User Buyer { get; set; }
 
+        // Product
         [Required]
         public int ProductId { get; set; }
-        [ForeignKey("ProductId")]
-        public virtual Product Product { get; set; }
+        public Product Product { get; set; }
     }
 }

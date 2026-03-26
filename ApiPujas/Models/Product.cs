@@ -1,14 +1,13 @@
 ﻿using ApiPujas.Enums;
 using System;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
 
 namespace ApiPujas.Models
 {
     public class Product
     {
         [Key]
-        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public int Id { get; set; }
 
         [Required]
@@ -19,7 +18,6 @@ namespace ApiPujas.Models
         public string Description { get; set; }
 
         [Required]
-        [Column(TypeName = "decimal(18,2)")]
         public decimal InitialPrice { get; set; }
 
         [Required]
@@ -36,10 +34,12 @@ namespace ApiPujas.Models
         [MaxLength(100)]
         public string? Category { get; set; }
 
+        // Relación con Seller
         [Required]
         public int SellerId { get; set; }
+        public User Seller { get; set; }
 
-        [ForeignKey("SellerId")]
-        public virtual User? Seller { get; set; } // ← ahora nullable
+        // Relación con Bids
+        public ICollection<Bid> Bids { get; set; } = new List<Bid>();
     }
 }

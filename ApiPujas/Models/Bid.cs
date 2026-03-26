@@ -1,30 +1,27 @@
 ﻿using System;
 using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
 
 namespace ApiPujas.Models
 {
     public class Bid
     {
         [Key]
-        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         public int Id { get; set; }
 
         [Required]
-        [Column(TypeName = "decimal(18,2)")]
         public decimal Amount { get; set; }
 
         [Required]
         public DateTime Date { get; set; } = DateTime.UtcNow;
 
+        // Relación con Product
         [Required]
         public int ProductId { get; set; }
-        [ForeignKey("ProductId")]
-        public virtual Product Product { get; set; }
+        public Product Product { get; set; }
 
+        // Relación con User (Buyer)
         [Required]
-        public int BuyerId { get; set; } // Antes era UserId
-        [ForeignKey("BuyerId")]
-        public virtual User Buyer { get; set; }
+        public int BuyerId { get; set; }
+        public User Buyer { get; set; }
     }
 }
