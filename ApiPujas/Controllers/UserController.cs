@@ -76,7 +76,7 @@ namespace ApiPujas.Controllers
         // =========================================
         // SEARCH USERS
         // =========================================
-        [HttpGet("GetUsersByTerm/{searchTerm}")]
+        [HttpGet("GetUsersByID/{searchTerm}")]
         public async Task<IActionResult> GetUsersByTerm(string searchTerm)
         {
             try
@@ -113,6 +113,47 @@ namespace ApiPujas.Controllers
                 });
             }
         }
+
+
+        [HttpGet("GetUsersByName/{searchTerm}")]
+        public async Task<IActionResult> GetUsersByName(string searchTerm)
+        {
+            try
+            {
+               
+
+                var users = await _context.Users
+                    .Where(u =>
+                        u.Name.StartsWith(searchTerm))
+                    .ToListAsync();
+
+                if (!users.Any())
+                {
+                    return NotFound(new
+                    {
+                        isSuccess = false,
+                        message = "No se encontraron usuarios"
+                    });
+                }
+
+                return Ok(new
+                {
+                    isSuccess = true,
+                    count = users.Count,
+                    data = users
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    isSuccess = false,
+                    message = ex.Message
+                });
+            }
+        }
+
+
         [HttpPut("UpdateUser/{id}")]
         public async Task<IActionResult> UpdateUser(int id, [FromBody] UpdateUserDto dto)
         {
