@@ -84,11 +84,7 @@ namespace ApiPujas.Controllers
                 int.TryParse(searchTerm, out int idBusqueda);
 
                 var users = await _context.Users
-                    .AsNoTracking()
-                    .Where(u =>
-                        u.Name.Contains(searchTerm) ||
-                        u.Email.Contains(searchTerm) ||
-                        u.Phone.Contains(searchTerm) ||
+                    .Where(u =>          
                         u.Id == idBusqueda)
                     .ToListAsync();
 
