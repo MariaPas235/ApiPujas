@@ -1,22 +1,22 @@
-﻿    using ApiPujas.Data;
+﻿using ApiPujas.Data;
 using ApiPujas.Enums;
 using ApiPujas.Models;
-    using ApiPujas.Models.Dto;
-    using Microsoft.AspNetCore.Mvc;
-    using Microsoft.EntityFrameworkCore;
+using ApiPujas.Models.Dto;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
-    namespace ApiPujas.Controllers
+namespace ApiPujas.Controllers
+{
+    [Route("api/[controller]")]
+    [ApiController]
+    public class PurchaseController : ControllerBase
     {
-        [Route("api/[controller]")]
-        [ApiController]
-        public class PurchaseController : ControllerBase
-        {
-            private readonly AppDbContext _context;
+        private readonly AppDbContext _context;
 
-            public PurchaseController(AppDbContext context)
-            {
-                _context = context;
-            }
+        public PurchaseController(AppDbContext context)
+        {
+            _context = context;
+        }
 
         // GET: api/purchase/user/5
         [HttpGet("user/{userId}")]
@@ -47,4 +47,4 @@ using ApiPujas.Models;
             return response;
         }
     }
-    }
+}
