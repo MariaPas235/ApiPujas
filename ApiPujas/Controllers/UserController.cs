@@ -117,61 +117,57 @@ namespace ApiPujas.Controllers
                 });
             }
         }
-
         [HttpPut("UpdateUser/{id}")]
-        public ResponseDto UpdateUser(int id, [FromBody] User updatedUser)
+        public async Task<IActionResult> UpdateUser(int id, [FromBody] UpdateUserDto dto)
         {
             try
             {
-                // 1. Buscar el usuario existente en la base de datos
-                var userDb = _context.Users.FirstOrDefault(u => u.Id == id);
+                var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == id);
 
-                if (userDb == null)
+                if (user == null)
                 {
-                    _response.IsSuccess = false;
-                    _response.Message = "Usuario no encontrado.";
-                    return _response;
+                    return NotFound(new
+                    {
+                        isSuccess = false,
+                        message = "Usuario no encontrado"
+                    });
                 }
 
-                // 2. Limpiar validaciones de navegación (igual que en el Post)
-                ModelState.Remove("Products");
-                ModelState.Remove("Bids");
+                // =========================
+                // UPDATE FIELDS
+                // =========================
+                user.Name = dto.Name;
+                user.Email = dto.Email;
+                user.Phone = dto.Phone;
+                user.Address = dto.Address;
+                user.Photo = dto.Photo;
 
-                // 3. Actualizar los campos permitidos
-                userDb.Name = updatedUser.Name;
-                userDb.Email = updatedUser.Email;
-                userDb.Phone = updatedUser.Phone;
-                userDb.Address = updatedUser.Address;
-
-                // Solo actualizamos la foto si se envía una nueva (no es null)
-                if (!string.IsNullOrEmpty(updatedUser.Photo))
+                // =========================
+                // PASSWORD OPTIONAL UPDATE
+                // =========================
+                if (!string.IsNullOrEmpty(dto.Password))
                 {
-                    userDb.Photo = updatedUser.Photo;
+                    user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password);
                 }
 
-                // 4. Lógica opcional para la contraseña
-                // Si el campo Password no viene vacío, significa que el usuario quiere cambiarla
-                if (!string.IsNullOrEmpty(updatedUser.Password) && !updatedUser.Password.StartsWith("$2a$"))
+                await _context.SaveChangesAsync();
+
+                return Ok(new
                 {
-                    userDb.Password = BCrypt.Net.BCrypt.HashPassword(updatedUser.Password);
-                }
-
-                _context.Users.Update(userDb);
-                _context.SaveChanges();
-
-                // Limpiamos el password de la respuesta por seguridad
-                userDb.Password = null;
-                _response.Data = userDb;
-                _response.IsSuccess = true;
-                _response.Message = "Usuario actualizado correctamente.";
+                    isSuccess = true,
+                    data = user
+                });
             }
             catch (Exception ex)
             {
-                _response.IsSuccess = false;
-                _response.Message = "Error al actualizar: " + (ex.InnerException?.Message ?? ex.Message);
+                return StatusCode(500, new
+                {
+                    isSuccess = false,
+                    message = ex.Message
+                });
             }
-            return _response;
         }
+
 
         // =========================================
         // LOGIN

@@ -126,29 +126,23 @@ namespace ApiPujas.Controllers
             var stopwatch = Stopwatch.StartNew();
 
             var result = await _context.Bids
-       .Where(b => b.BuyerId == userId)
-       .Include(b => b.Product)
-       .GroupBy(b => new
-       {
-           b.ProductId,
-           b.Product.Title,
-           b.Product.Photo,
-           b.Product.Category,
-           b.Product.productState,
-           b.Product.EndDate
-       })
-       .Select(g => new
-       {
-           ProductId = g.Key.ProductId,
-           ProductTitle = g.Key.Title,
-           Photo = g.Key.Photo,
-           Category = g.Key.Category,
-           MyHighestBid = g.Max(x => x.Amount),
-           Status = g.Key.productState.ToString(),
-           EndDate = g.Key.EndDate
-       })
-       .OrderByDescending(x => x.EndDate)
-       .ToListAsync();
+                .AsNoTracking()
+                .Where(b => b.BuyerId == userId)
+                .GroupBy(b => b.ProductId)
+                .Select(g => new
+                {
+                    ProductId = g.Key,
+
+                    ProductTitle = g.Select(x => x.Product.Title).FirstOrDefault(),
+                    Photo = g.Select(x => x.Product.Photo).FirstOrDefault(),
+                    Category = g.Select(x => x.Product.Category).FirstOrDefault(),
+                    EndDate = g.Select(x => x.Product.EndDate).FirstOrDefault(),
+                    Status = g.Select(x => x.Product.productState).FirstOrDefault(),
+
+                    MyHighestBid = g.Max(x => x.Amount)
+                })
+                .OrderByDescending(x => x.EndDate)
+                .ToListAsync();
 
             stopwatch.Stop();
             Console.WriteLine($"⏱️ USER BIDS QUERY: {stopwatch.ElapsedMilliseconds} ms");
