@@ -15,6 +15,8 @@ namespace ApiPujas.Models
         [Required]
         public PurchaseState purchaseState { get; set; }
 
+        [Required]
+        public decimal TotalToPay { get; set; }
         public int OperationId { get; set; }
 
         [MaxLength(500)]
