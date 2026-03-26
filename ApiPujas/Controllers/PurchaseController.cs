@@ -17,33 +17,33 @@
                 _context = context;
             }
 
-            // GET: api/purchase/user/5
-            [HttpGet("user/{userId}")]
-            public async Task<ResponseDto> GetByUser(int userId)
+        // GET: api/purchase/user/5
+        [HttpGet("user/{userId}")]
+        public async Task<ResponseDto> GetByUser(int userId)
+        {
+            var response = new ResponseDto();
+
+            try
             {
-                var response = new ResponseDto();
+                var purchases = await _context.Purchases
+                    .Include(p => p.Product)
+                    .Where(p => p.BuyerId == userId && p.purchaseState == PurchaseState.Pending)
+                    .OrderByDescending(p => p.PurchaseDate)
+                    .ToListAsync();
 
-                try
-                {
-                    var purchases = await _context.Purchases
-                        .Include(p => p.Product)
-                        .Where(p => p.BuyerId == userId)
-                        .OrderByDescending(p => p.PurchaseDate)
-                        .ToListAsync();
-
-                    response.IsSuccess = true;
-                    response.Data = purchases;
-                    response.Message = purchases.Any()
-                        ? $"Compras encontradas: {purchases.Count}"
-                        : "No hay compras para este usuario";
-                }
-                catch (Exception ex)
-                {
-                    response.IsSuccess = false;
-                    response.Message = ex.Message;
-                }
-
-                return response;
+                response.IsSuccess = true;
+                response.Data = purchases;
+                response.Message = purchases.Any()
+                    ? $"Compras pendientes encontradas: {purchases.Count}"
+                    : "No hay compras pendientes para este usuario";
             }
+            catch (Exception ex)
+            {
+                response.IsSuccess = false;
+                response.Message = ex.Message;
+            }
+
+            return response;
         }
+    }
     }

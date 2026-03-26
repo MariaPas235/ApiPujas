@@ -32,7 +32,7 @@ namespace ApiPujas.Services
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            _logger.LogInformation("[AuctionBackgroundService] Servicio iniciado a {time}", DateTime.UtcNow);
+            _logger.LogInformation("[AuctionService] Iniciado a {time}", DateTime.UtcNow);
 
             while (!stoppingToken.IsCancellationRequested)
             {
@@ -43,99 +43,113 @@ namespace ApiPujas.Services
 
                     var now = DateTime.UtcNow;
 
-                    var productsToUpdate = await context.Products
-                        .Where(p =>
-                            (p.productState == ProductState.Scheduled && p.StartDate <= now) ||
-                            (p.productState == ProductState.Active && p.EndDate <= now))
-                        .ToListAsync();
+                    // =========================
+                    // 🟡 ACTIVAR SUBASTAS
+                    // =========================
+                    var toActivate = await context.Products
+                        .Where(p => p.productState == ProductState.Scheduled
+                                    && p.StartDate <= now)
+                        .ToListAsync(stoppingToken);
 
-                    if (productsToUpdate.Any())
+                    foreach (var product in toActivate)
                     {
-                        foreach (var product in productsToUpdate)
+                        product.productState = ProductState.Active;
+
+                        _logger.LogInformation(
+                            "[AUCTION] Producto {id} -> ACTIVE",
+                            product.Id);
+                    }
+
+                    // =========================
+                    // 🔴 CERRAR SUBASTAS
+                    // =========================
+                    var toClose = await context.Products
+                        .Where(p => p.productState == ProductState.Active
+                                    && p.EndDate <= now)
+                        .ToListAsync(stoppingToken);
+
+                    foreach (var product in toClose)
+                    {
+                        product.productState = ProductState.Closed;
+
+                        _logger.LogInformation(
+                            "[AUCTION] Producto {id} -> CLOSED",
+                            product.Id);
+
+                        // =========================
+                        // 🧠 PUJA GANADORA
+                        // =========================
+                        var winningBid = await context.Bids
+                            .Where(b => b.ProductId == product.Id)
+                            .OrderByDescending(b => b.Amount)
+                            .ThenBy(b => b.Date)
+                            .FirstOrDefaultAsync(stoppingToken);
+
+                        if (winningBid != null)
                         {
-                            // 🟡 PASAR A ACTIVO
-                            if (product.productState == ProductState.Scheduled &&
-                                product.StartDate <= now)
+                            var exists = await context.Purchases
+                                .AnyAsync(p => p.ProductId == product.Id, stoppingToken);
+
+                            if (!exists)
                             {
-                                product.productState = ProductState.Active;
+                                var purchase = new Purchase
+                                {
+                                    PurchaseDate = DateTime.UtcNow,
+                                    purchaseState = PurchaseState.Pending,
+                                    ProductId = product.Id,
+                                    BuyerId = winningBid.BuyerId,
+                                    OrderNumber = Guid.NewGuid().ToString(),
+                                    OperationId = 0,
+                                    Data = null
+                                };
+
+                                context.Purchases.Add(purchase);
 
                                 _logger.LogInformation(
-                                    "[SignalR] Producto {id} pasado a ACTIVO",
-                                    product.Id);
+                                    "[PURCHASE] Creada para producto {id}, buyer {buyer}",
+                                    product.Id,
+                                    winningBid.BuyerId);
                             }
-
-                            // 🔴 CERRAR SUBASTA
-                            else if (product.productState == ProductState.Active &&
-                                     product.EndDate <= now)
+                            else
                             {
-                                product.productState = ProductState.Closed;
-
                                 _logger.LogInformation(
-                                    "[SignalR] Producto {id} pasado a CERRADO",
+                                    "[PURCHASE] Ya existía para producto {id}",
                                     product.Id);
-
-                                // =========================
-                                // 🧠 1. PUJA GANADORA
-                                // =========================
-                                var winningBid = await context.Bids
-                                    .Where(b => b.ProductId == product.Id)
-                                    .OrderByDescending(b => b.Amount)
-                                    .ThenBy(b => b.Date)
-                                    .FirstOrDefaultAsync();
-
-                                // =========================
-                                // 💰 2. CREAR PURCHASE
-                                // =========================
-                                if (winningBid != null)
-                                {
-                                    var alreadyExists = await context.Purchases
-                                        .AnyAsync(p => p.ProductId == product.Id);
-
-                                    if (!alreadyExists)
-                                    {
-                                        var purchase = new Purchase
-                                        {
-                                            PurchaseDate = DateTime.UtcNow,
-                                            purchaseState = PurchaseState.Pending,
-                                            ProductId = product.Id,
-                                            BuyerId = winningBid.BuyerId,
-                                            OrderNumber = Guid.NewGuid().ToString(),
-                                            OperationId = 0,
-                                            Data = null
-                                        };
-
-                                        context.Purchases.Add(purchase);
-
-                                        _logger.LogInformation(
-                                            "[PURCHASE] Creada compra para producto {id} - buyer {buyer}",
-                                            product.Id,
-                                            winningBid.BuyerId);
-                                    }
-                                }
-                                else
-                                {
-                                    _logger.LogInformation(
-                                        "[PURCHASE] Producto {id} sin pujas",
-                                        product.Id);
-                                }
                             }
                         }
+                        else
+                        {
+                            _logger.LogInformation(
+                                "[PURCHASE] Producto {id} sin pujas",
+                                product.Id);
+                        }
+                    }
 
-                        // 💾 Guardar TODO (estado + purchases)
-                        await context.SaveChangesAsync();
+                    // =========================
+                    // 💾 GUARDAR CAMBIOS
+                    // =========================
+                    await context.SaveChangesAsync(stoppingToken);
 
-                        // 📡 SIGNALR refresh frontend
-                        await _hubContext.Clients.All.SendAsync("RefreshProducts", stoppingToken);
+                    // =========================
+                    // 📡 SIGNALR UPDATE
+                    // =========================
+                    if (toActivate.Any() || toClose.Any())
+                    {
+                        await _hubContext.Clients.All.SendAsync("RefreshProducts");
 
-                        _logger.LogInformation("[SignalR] Notificación enviada a todos los clientes.");
+                        _logger.LogInformation(
+                            "[SIGNALR] Refresh enviado a clientes");
                     }
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "[AuctionBackgroundService] ERROR");
+                    _logger.LogError(
+                        ex,
+                        "[AuctionService] ERROR: {msg}",
+                        ex.InnerException?.Message);
                 }
 
-                await Task.Delay(TimeSpan.FromSeconds(30), stoppingToken);
+                await Task.Delay(TimeSpan.FromSeconds(10), stoppingToken);
             }
         }
     }
