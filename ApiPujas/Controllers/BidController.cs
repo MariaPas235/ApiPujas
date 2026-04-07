@@ -55,7 +55,6 @@ namespace ApiPujas.Controllers
                 return Ok(new
                 {
                     currentPrice = product.InitialPrice,
-                    lastBidderName = "Nadie aún"
                 });
             }
 

@@ -126,6 +126,40 @@ namespace ApiPujas.Controllers
             }
         }
         // =========================================
+        // PRODUCTS BY CATEGORY
+        // =========================================
+        [HttpGet("GetByCategory")]
+        public async Task<IActionResult> GetByCategory()
+        {
+            var categories = new List<string>
+    {
+        "Motor", "Tecnologia", "Hogar", "Moda", "Ninos",
+        "Deporte", "Coleccionismo", "Libros", "Construccion",
+        "Industria", "Otros"
+    };
+
+            var products = await _context.Products
+                .AsNoTracking()
+                .Where(p =>
+                    (p.productState == ProductState.Active ||
+                     p.productState == ProductState.Scheduled) &&
+                    p.EndDate > DateTime.UtcNow)
+                .ToListAsync();
+
+            var grouped = categories.Select(cat => new
+            {
+                category = cat,
+                count = products.Count(p => p.Category == cat),
+                products = products.Where(p => p.Category == cat).ToList()
+            });
+
+            return Ok(new
+            {
+                isSuccess = true,
+                data = grouped
+            });
+        }
+        // =========================================
         // UPDATE PRODUCT
         // =========================================
         [HttpPut("{id}")]

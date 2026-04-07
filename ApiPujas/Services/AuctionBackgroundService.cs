@@ -100,7 +100,7 @@ namespace ApiPujas.Services
                                     BuyerId = winningBid.BuyerId,
                                     OrderNumber = Guid.NewGuid().ToString(),
                                     OperationId = 0,
-                                    Data = null,
+                                    Data = "3102023",
                                     TotalToPay = winningBid.Amount
 
                                 };  
