@@ -1,6 +1,6 @@
 using ApiPujas.Data;
 using ApiPujas.Services;
-using ApiPujas.Hubs; // Asegúrate de tener la carpeta Hubs creada
+using ApiPujas.Hubs;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json.Serialization;
 
@@ -14,39 +14,50 @@ namespace ApiPujas
 
             // 1. DbContext
             builder.Services.AddDbContext<AppDbContext>(options =>
-                options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+                options.UseSqlServer(
+                    builder.Configuration.GetConnectionString("DefaultConnection"),
+                    sqlServerOptionsAction: sqlOptions =>
+                    {
+                        sqlOptions.EnableRetryOnFailure(
+                            maxRetryCount: 5,
+                            maxRetryDelay: TimeSpan.FromSeconds(30),
+                            errorNumbersToAdd: null);
+                    }
+                ));
 
-            // 2. SignalR (Añadido)
+            // --- NUEVO: Registro de HttpClient para que BizumController funcione ---
+            builder.Services.AddHttpClient(); // <--- AÑADIR ESTA LÍNEA 🚀
+
+            // 2. SignalR
             builder.Services.AddSignalR();
 
-            // 3. CORS Configurado específicamente para SignalR
+            // 3. CORS
             builder.Services.AddCors(options =>
             {
                 options.AddPolicy("AllowAngular", policy =>
                 {
-                    policy.WithOrigins("http://localhost:4200") // Tu URL de Angular
+                    policy.WithOrigins("http://localhost:4200")
                           .AllowAnyMethod()
                           .AllowAnyHeader()
-                          .AllowCredentials(); // 👈 OBLIGATORIO para SignalR
+                          .AllowCredentials();
                 });
             });
 
-            // 4. Controllers + enums como string
+            // 4. Controllers
             builder.Services.AddControllers()
                 .AddJsonOptions(options =>
                 {
                     options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
                 });
 
-            // 5. Servicio de subastas automáticas
+            // 5. Otros servicios
             builder.Services.AddHostedService<AuctionBackgroundService>();
-
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen();
 
             var app = builder.Build();
 
-            // Configuración del Middleware
+            // Middlewares
             if (app.Environment.IsDevelopment())
             {
                 app.UseSwagger();
@@ -54,15 +65,11 @@ namespace ApiPujas
             }
 
             app.UseHttpsRedirection();
-
-            // Usar la política CORS antes de Authorization y MapHub
             app.UseCors("AllowAngular");
-
             app.UseAuthorization();
 
-            // 6. Mapeo de rutas (Añadido)
             app.MapControllers();
-            app.MapHub<AuctionHub>("/auctionHub"); // 👈 Esta es la URL que pondrás en Angular
+            app.MapHub<AuctionHub>("/auctionHub");
 
             app.Run();
         }
