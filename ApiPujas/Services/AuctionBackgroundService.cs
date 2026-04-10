@@ -116,12 +116,9 @@ namespace ApiPujas.Services
                                     purchaseState = PurchaseState.Pending,
                                     ProductId = product.Id,
                                     BuyerId = winningBid.BuyerId,
-<<<<<<< HEAD
-                                    OrderNumber = GenerateOrderNumber(),
-=======
                                     // Resultado: 12 caracteres en total (8 de tiempo + 4 aleatorios)
                                     OrderNumber = $"{timestampStr}{randomStr}",
->>>>>>> 2afd792df3c309fefb95934a4f90f7d4a908e7f4
+
                                     OperationId = 0,
                                     Data = "3102023",
                                     TotalToPay = winningBid.Amount
