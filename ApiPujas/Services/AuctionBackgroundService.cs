@@ -100,18 +100,32 @@ namespace ApiPujas.Services
 
                             if (!exists)
                             {
+                                // 1. Obtenemos el timestamp (milisegundos actuales)
+                                long timestampMillis = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                                string timestampPart = timestampMillis.ToString();
+                                // Sacamos los últimos 8 caracteres (igual que .slice(-8))
+                                string timestampStr = timestampPart.Substring(Math.Max(0, timestampPart.Length - 8));
+
+                                // 2. Generamos el número aleatorio de 4 dígitos
+                                Random rnd = new Random();
+                                string randomStr = rnd.Next(0, 10000).ToString("D4"); // "D4" asegura el padding de ceros
+
                                 var purchase = new Purchase
                                 {
                                     PurchaseDate = DateTime.UtcNow,
                                     purchaseState = PurchaseState.Pending,
                                     ProductId = product.Id,
                                     BuyerId = winningBid.BuyerId,
+<<<<<<< HEAD
                                     OrderNumber = GenerateOrderNumber(),
+=======
+                                    // Resultado: 12 caracteres en total (8 de tiempo + 4 aleatorios)
+                                    OrderNumber = $"{timestampStr}{randomStr}",
+>>>>>>> 2afd792df3c309fefb95934a4f90f7d4a908e7f4
                                     OperationId = 0,
                                     Data = "3102023",
                                     TotalToPay = winningBid.Amount
-
-                                };  
+                                };
 
                                 context.Purchases.Add(purchase);
 
