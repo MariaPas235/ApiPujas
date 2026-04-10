@@ -30,6 +30,14 @@ namespace ApiPujas.Services
             _hubContext = hubContext;
         }
 
+        private static string GenerateOrderNumber()
+        {
+            // Ej: "0407XXXXXXXX" -> fecha + ticks truncados
+            var now = DateTime.UtcNow;
+            var suffix = Math.Abs(Guid.NewGuid().GetHashCode()) % 100000000;
+            return $"{now:MMdd}{suffix:D8}".Substring(0, 12);
+        }
+
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             _logger.LogInformation("[AuctionService] Iniciado a {time}", DateTime.UtcNow);
@@ -110,6 +118,7 @@ namespace ApiPujas.Services
                                     BuyerId = winningBid.BuyerId,
                                     // Resultado: 12 caracteres en total (8 de tiempo + 4 aleatorios)
                                     OrderNumber = $"{timestampStr}{randomStr}",
+
                                     OperationId = 0,
                                     Data = "3102023",
                                     TotalToPay = winningBid.Amount
