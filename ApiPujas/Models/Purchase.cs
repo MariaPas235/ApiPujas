@@ -17,7 +17,6 @@ namespace ApiPujas.Models
 
         [Required]
         public decimal TotalToPay { get; set; }
-        public int OperationId { get; set; }
 
         [MaxLength(500)]
         public string? Data { get; set; }

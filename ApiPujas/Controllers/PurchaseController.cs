@@ -18,6 +18,50 @@ namespace ApiPujas.Controllers
             _context = context;
         }
 
+        [HttpPut("{id}")]
+        public async Task<ResponseDto> UpdateBidState(int id)
+        {
+            try
+            {
+                var purchase = await _context.Purchases.FindAsync(id);
+
+                if (purchase == null)
+                    return new ResponseDto
+                    {
+                        IsSuccess = false,
+                        Message = "Purchase not found"
+                    };
+
+                if (purchase.purchaseState == PurchaseState.Finalized)
+                    return new ResponseDto
+                    {
+                        IsSuccess = false,
+                        Message = "Purchase is already finalized"
+                    };
+
+                purchase.purchaseState = PurchaseState.Finalized;
+
+                _context.Purchases.Update(purchase);
+                await _context.SaveChangesAsync();
+
+                return new ResponseDto
+                {
+                    IsSuccess = true,
+                    Message = "Purchase finalized successfully",
+                    Data = purchase
+                };
+            }
+            catch (Exception ex)
+            {
+                return new ResponseDto
+                {
+                    IsSuccess = false,
+                    Message = ex.Message
+                };
+            }
+        }
+        
+
         // GET: api/purchase/user/5
         [HttpGet("user/{userId}")]
         public async Task<ResponseDto> GetByUser(int userId)
