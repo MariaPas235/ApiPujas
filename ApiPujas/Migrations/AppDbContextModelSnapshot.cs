@@ -48,7 +48,7 @@ namespace ApiPujas.Migrations
 
                     b.HasIndex("ProductId");
 
-                    b.ToTable("Bids");
+                    b.ToTable("Bids", (string)null);
                 });
 
             modelBuilder.Entity("ApiPujas.Models.Product", b =>
@@ -96,7 +96,7 @@ namespace ApiPujas.Migrations
 
                     b.HasIndex("SellerId");
 
-                    b.ToTable("Products");
+                    b.ToTable("Products", (string)null);
                 });
 
             modelBuilder.Entity("ApiPujas.Models.Purchase", b =>
@@ -136,7 +136,7 @@ namespace ApiPujas.Migrations
 
                     b.HasIndex("ProductId");
 
-                    b.ToTable("Purchases");
+                    b.ToTable("Purchases", (string)null);
                 });
 
             modelBuilder.Entity("ApiPujas.Models.Rating", b =>
@@ -169,7 +169,7 @@ namespace ApiPujas.Migrations
 
                     b.HasIndex("SellerId");
 
-                    b.ToTable("Ratings");
+                    b.ToTable("Ratings", (string)null);
                 });
 
             modelBuilder.Entity("ApiPujas.Models.User", b =>
@@ -183,10 +183,6 @@ namespace ApiPujas.Migrations
                     b.Property<string>("Address")
                         .HasMaxLength(250)
                         .HasColumnType("nvarchar(250)");
-
-                    b.Property<string>("Comments")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Email")
                         .IsRequired()
@@ -223,7 +219,7 @@ namespace ApiPujas.Migrations
                     b.HasIndex("Email")
                         .IsUnique();
 
-                    b.ToTable("Users");
+                    b.ToTable("Users", (string)null);
                 });
 
             modelBuilder.Entity("ApiPujas.Models.Bid", b =>
