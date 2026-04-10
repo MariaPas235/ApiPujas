@@ -101,6 +101,17 @@ namespace ApiPujas.Data
             modelBuilder.Entity<User>()
                 .HasIndex(u => u.Email)
                 .IsUnique();
+
+            // ===============================
+            // 📝 4. CONVERSIÓN List<string> → JSON (Comments)
+            // ===============================
+            modelBuilder.Entity<User>()
+                .Property(u => u.Comments)
+                .HasConversion(
+                    v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions)null),
+                    v => System.Text.Json.JsonSerializer.Deserialize<List<string>>(v, (System.Text.Json.JsonSerializerOptions)null) ?? new List<string>()
+                )
+                .HasColumnType("nvarchar(max)");
         }
     }
 }
