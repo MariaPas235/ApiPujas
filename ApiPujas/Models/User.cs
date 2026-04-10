@@ -37,7 +37,7 @@ namespace ApiPujas.Models
         [MaxLength(250)]
         public string? Address { get; set; }
 
-        public List <String> Comments { get; set; } 
+   
 
         // Relaciones
         [JsonIgnore]
