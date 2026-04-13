@@ -77,8 +77,8 @@ namespace ApiPujas.Controllers
                 response.IsSuccess = true;
                 response.Data = purchases;
                 response.Message = purchases.Any()
-                    ? $"Compras pendientes encontradas: {purchases.Count}"
-                    : "No hay compras pendientes para este usuario";
+                    ? $"Compras pagadas encontradas: {purchases.Count}"
+                    : "No hay compras pagadas para este usuario";
             }
             catch (Exception ex)
             {
