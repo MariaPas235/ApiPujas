@@ -46,7 +46,6 @@ namespace ApiPujas.Controllers
             }
         }
 
-        // POST api/review
         [HttpPost]
         public async Task<ResponseDto> CreateReview([FromBody] CreateReviewDto dto)
         {
@@ -75,6 +74,17 @@ namespace ApiPujas.Controllers
                 };
 
                 _context.Ratings.Add(rating);
+                await _context.SaveChangesAsync();
+
+                // Calcular media y actualizar reputación del seller
+                var allRatings = await _context.Ratings
+                    .Where(r => r.SellerId == purchase.Product.SellerId)
+                    .ToListAsync();
+
+                var average = allRatings.Average(r => r.Score);
+
+                var seller = await _context.Users.FindAsync(purchase.Product.SellerId);
+                seller.Reputation = Math.Round((decimal)average, 2);
                 await _context.SaveChangesAsync();
 
                 return new ResponseDto
