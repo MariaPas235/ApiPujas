@@ -23,7 +23,9 @@ namespace ApiPujas.Controllers
         {
             try
             {
-                var purchase = await _context.Purchases.FindAsync(id);
+                var purchase = await _context.Purchases
+                    .Include(p => p.Product)
+                    .FirstOrDefaultAsync(p => p.Id == id);
 
                 if (purchase == null)
                     return new ResponseDto
@@ -40,8 +42,8 @@ namespace ApiPujas.Controllers
                     };
 
                 purchase.purchaseState = PurchaseState.Finalized;
+                purchase.Product.productState = ProductState.Sended;
 
-                _context.Purchases.Update(purchase);
                 await _context.SaveChangesAsync();
 
                 return new ResponseDto
@@ -60,16 +62,36 @@ namespace ApiPujas.Controllers
                 };
             }
         }
-        // GET: api/purchase/user/5
+        [HttpGet("product/{productId}")]
+        public async Task<ResponseDto> GetByProduct(int productId)
+        {
+            var response = new ResponseDto();
+            try
+            {
+                var purchase = await _context.Purchases
+                    .Include(p => p.Product)
+                    .Include(p => p.Buyer)
+                    .FirstOrDefaultAsync(p => p.ProductId == productId);
+
+                response.IsSuccess = true;
+                response.Data = purchase;
+            }
+            catch (Exception ex)
+            {
+                response.IsSuccess = false;
+                response.Message = ex.Message;
+            }
+            return response;
+        }
         [HttpGet("user/finalized/{userId}")]
         public async Task<ResponseDto> GetFinalized(int userId)
         {
             var response = new ResponseDto();
-
             try
             {
                 var purchases = await _context.Purchases
                     .Include(p => p.Product)
+                    .Include(p => p.Buyer)   // ← añade esto
                     .Where(p => p.BuyerId == userId && p.purchaseState == PurchaseState.Finalized)
                     .OrderByDescending(p => p.PurchaseDate)
                     .ToListAsync();
@@ -85,21 +107,18 @@ namespace ApiPujas.Controllers
                 response.IsSuccess = false;
                 response.Message = ex.Message;
             }
-
             return response;
         }
-    
 
-        // GET: api/purchase/user/5
         [HttpGet("user/{userId}")]
         public async Task<ResponseDto> GetByUser(int userId)
         {
             var response = new ResponseDto();
-
             try
             {
                 var purchases = await _context.Purchases
                     .Include(p => p.Product)
+                    .Include(p => p.Buyer)   // ← añade esto
                     .Where(p => p.BuyerId == userId && p.purchaseState == PurchaseState.Pending)
                     .OrderByDescending(p => p.PurchaseDate)
                     .ToListAsync();
@@ -115,7 +134,6 @@ namespace ApiPujas.Controllers
                 response.IsSuccess = false;
                 response.Message = ex.Message;
             }
-
             return response;
         }
     }
