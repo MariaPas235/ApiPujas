@@ -60,7 +60,35 @@ namespace ApiPujas.Controllers
                 };
             }
         }
-        
+        // GET: api/purchase/user/5
+        [HttpGet("user/finalized/{userId}")]
+        public async Task<ResponseDto> GetFinalized(int userId)
+        {
+            var response = new ResponseDto();
+
+            try
+            {
+                var purchases = await _context.Purchases
+                    .Include(p => p.Product)
+                    .Where(p => p.BuyerId == userId && p.purchaseState == PurchaseState.Finalized)
+                    .OrderByDescending(p => p.PurchaseDate)
+                    .ToListAsync();
+
+                response.IsSuccess = true;
+                response.Data = purchases;
+                response.Message = purchases.Any()
+                    ? $"Compras pendientes encontradas: {purchases.Count}"
+                    : "No hay compras pendientes para este usuario";
+            }
+            catch (Exception ex)
+            {
+                response.IsSuccess = false;
+                response.Message = ex.Message;
+            }
+
+            return response;
+        }
+    
 
         // GET: api/purchase/user/5
         [HttpGet("user/{userId}")]

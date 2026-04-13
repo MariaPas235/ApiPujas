@@ -32,7 +32,6 @@ namespace ApiPujas.Services
 
         private static string GenerateOrderNumber()
         {
-            // Ej: "0407XXXXXXXX" -> fecha + ticks truncados
             var now = DateTime.UtcNow;
             var suffix = Math.Abs(Guid.NewGuid().GetHashCode()) % 100000000;
             return $"{now:MMdd}{suffix:D8}".Substring(0, 12);
@@ -62,10 +61,7 @@ namespace ApiPujas.Services
                     foreach (var product in toActivate)
                     {
                         product.productState = ProductState.Active;
-
-                        _logger.LogInformation(
-                            "[AUCTION] Producto {id} -> ACTIVE",
-                            product.Id);
+                        _logger.LogInformation("[AUCTION] Producto {id} -> ACTIVE", product.Id);
                     }
 
                     // =========================
@@ -79,14 +75,19 @@ namespace ApiPujas.Services
                     foreach (var product in toClose)
                     {
                         product.productState = ProductState.Closed;
+                    }
 
-                        _logger.LogInformation(
-                            "[AUCTION] Producto {id} -> CLOSED",
-                            product.Id);
+                    // ✅ Guardamos activaciones y cierres ANTES de crear purchases
+                    // Así el siguiente ciclo ya no ve estos productos como Active
+                    await context.SaveChangesAsync(stoppingToken);
 
-                        // =========================
-                        // 🧠 PUJA GANADORA
-                        // =========================
+                    // =========================
+                    // 🧠 PUJA GANADORA
+                    // =========================
+                    foreach (var product in toClose)
+                    {
+                        _logger.LogInformation("[AUCTION] Producto {id} -> CLOSED", product.Id);
+
                         var winningBid = await context.Bids
                             .Where(b => b.ProductId == product.Id)
                             .OrderByDescending(b => b.Amount)
@@ -100,15 +101,12 @@ namespace ApiPujas.Services
 
                             if (!exists)
                             {
-                                // 1. Obtenemos el timestamp (milisegundos actuales)
                                 long timestampMillis = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
                                 string timestampPart = timestampMillis.ToString();
-                                // Sacamos los últimos 8 caracteres (igual que .slice(-8))
                                 string timestampStr = timestampPart.Substring(Math.Max(0, timestampPart.Length - 8));
 
-                                // 2. Generamos el número aleatorio de 4 dígitos
                                 Random rnd = new Random();
-                                string randomStr = rnd.Next(0, 10000).ToString("D4"); // "D4" asegura el padding de ceros
+                                string randomStr = rnd.Next(0, 10000).ToString("D4");
 
                                 var purchase = new Purchase
                                 {
@@ -125,26 +123,23 @@ namespace ApiPujas.Services
 
                                 _logger.LogInformation(
                                     "[PURCHASE] Creada para producto {id}, buyer {buyer}",
-                                    product.Id,
-                                    winningBid.BuyerId);
+                                    product.Id, winningBid.BuyerId);
                             }
                             else
                             {
                                 _logger.LogInformation(
-                                    "[PURCHASE] Ya existía para producto {id}",
-                                    product.Id);
+                                    "[PURCHASE] Ya existía para producto {id}", product.Id);
                             }
                         }
                         else
                         {
                             _logger.LogInformation(
-                                "[PURCHASE] Producto {id} sin pujas",
-                                product.Id);
+                                "[PURCHASE] Producto {id} sin pujas", product.Id);
                         }
                     }
 
                     // =========================
-                    // 💾 GUARDAR CAMBIOS
+                    // 💾 GUARDAR PURCHASES
                     // =========================
                     await context.SaveChangesAsync(stoppingToken);
 
@@ -154,9 +149,7 @@ namespace ApiPujas.Services
                     if (toActivate.Any() || toClose.Any())
                     {
                         await _hubContext.Clients.All.SendAsync("RefreshProducts");
-
-                        _logger.LogInformation(
-                            "[SIGNALR] Refresh enviado a clientes");
+                        _logger.LogInformation("[SIGNALR] Refresh enviado a clientes");
                     }
                 }
                 catch (Exception ex)
