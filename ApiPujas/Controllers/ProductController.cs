@@ -208,5 +208,23 @@ namespace ApiPujas.Controllers
                 message = "Producto eliminado"
             });
         }
+
+        [HttpGet("search")]
+        public async Task<ActionResult<IEnumerable<Product>>> SearchProducts([FromQuery] string term)
+        {
+            if (string.IsNullOrWhiteSpace(term))
+            {
+                return Ok(new List<Product>());
+            }
+
+       
+            var results = await _context.Products
+                .Where(p => p.Title.Contains(term) &&
+                           (p.productState == ProductState.Active || p.productState == ProductState.Scheduled))
+                .Take(10)
+                .ToListAsync();
+
+            return Ok(results);
+        }
     }
 }
