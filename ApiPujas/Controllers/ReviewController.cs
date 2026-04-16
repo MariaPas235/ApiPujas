@@ -85,12 +85,21 @@ namespace ApiPujas.Controllers
 
                 var seller = await _context.Users.FindAsync(purchase.Product.SellerId);
                 seller.Reputation = Math.Round((decimal)average, 2);
+
+                // ✅ Si la reputación es 5, marcar al usuario como verificado
+                if (seller.Reputation == 5)
+                {
+                    seller.IsVerified = true;
+                }
+
                 await _context.SaveChangesAsync();
 
                 return new ResponseDto
                 {
                     IsSuccess = true,
-                    Message = "Review created successfully",
+                    Message = seller.IsVerified
+                        ? "Review created successfully. Seller is now verified!"
+                        : "Review created successfully",
                     Data = rating
                 };
             }
