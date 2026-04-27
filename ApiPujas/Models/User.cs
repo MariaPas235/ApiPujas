@@ -37,7 +37,10 @@ namespace ApiPujas.Models
         [MaxLength(250)]
         public string? Address { get; set; }
 
-   
+        public string? FaceDescriptor { get; set; } 
+
+
+
 
         // Relaciones
         [JsonIgnore]

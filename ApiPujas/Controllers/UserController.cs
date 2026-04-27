@@ -46,6 +46,66 @@ namespace ApiPujas.Controllers
             }
         }
 
+        public class LoginWithFaceRequest
+        {
+            public List<float> FaceDescriptor { get; set; } = new();
+        }
+
+        [HttpPost("LoginWithFace")]
+        public async Task<IActionResult> LoginWithFace([FromBody] LoginWithFaceRequest request)
+        {
+            // Obtener todos los usuarios que tienen cara registrada
+            var users = await _context.Users
+                .Where(u => u.FaceDescriptor != null)
+                .ToListAsync();
+
+            User? matchedUser = null;
+            double bestDistance = double.MaxValue;
+            const double THRESHOLD = 0.6; // Umbral de similitud
+
+            foreach (var user in users)
+            {
+                // Deserializar el descriptor guardado en BD
+                var savedDescriptor = System.Text.Json.JsonSerializer
+                    .Deserialize<List<float>>(user.FaceDescriptor!);
+
+                if (savedDescriptor == null) continue;
+
+                // Calcular distancia euclidiana
+                double distance = EuclideanDistance(request.FaceDescriptor, savedDescriptor);
+
+                if (distance < bestDistance)
+                {
+                    bestDistance = distance;
+                    matchedUser = user;
+                }
+            }
+
+            // Si la mejor distancia está por debajo del umbral, es un match
+            if (matchedUser != null && bestDistance < THRESHOLD)
+            {
+                return Ok(new
+                {
+                    isSuccess = true,
+                    data = new { id = matchedUser.Id }
+                });
+            }
+
+            return Ok(new { isSuccess = false });
+        }
+
+        // Método auxiliar para calcular distancia euclidiana
+        private double EuclideanDistance(List<float> a, List<float> b)
+        {
+            double sum = 0;
+            for (int i = 0; i < Math.Min(a.Count, b.Count); i++)
+            {
+                double diff = a[i] - b[i];
+                sum += diff * diff;
+            }
+            return Math.Sqrt(sum);
+        }
+
         // =========================================
         // CREATE USER
         // =========================================
@@ -252,6 +312,34 @@ namespace ApiPujas.Controllers
                     isSuccess = false,
                     message = ex.Message
                 });
+            }
+        }
+        // =========================================
+        // SAVE FACE DESCRIPTOR
+        // =========================================
+        public class SaveFaceRequest
+        {
+            public int UserId { get; set; }
+            public List<float> FaceDescriptor { get; set; } = new();
+        }
+
+        [HttpPost("SaveFace")]
+        public async Task<IActionResult> SaveFace([FromBody] SaveFaceRequest request)
+        {
+            try
+            {
+                var user = await _context.Users.FindAsync(request.UserId);
+                if (user == null)
+                    return NotFound(new { isSuccess = false, message = "Usuario no encontrado" });
+
+                user.FaceDescriptor = System.Text.Json.JsonSerializer.Serialize(request.FaceDescriptor);
+                await _context.SaveChangesAsync();
+
+                return Ok(new { isSuccess = true });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { isSuccess = false, message = ex.Message });
             }
         }
     }
