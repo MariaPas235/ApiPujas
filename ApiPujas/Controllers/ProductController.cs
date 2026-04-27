@@ -163,29 +163,23 @@ namespace ApiPujas.Controllers
         // UPDATE PRODUCT
         // =========================================
         [HttpPut("{id}")]
-        public async Task<IActionResult> Update(int id, [FromBody] Product product)
+        public async Task<IActionResult> Update(int id, [FromBody] UpdateProductDto dto)
         {
             var existing = await _context.Products.FindAsync(id);
-
             if (existing == null)
                 return NotFound();
 
-            existing.Title = product.Title;
-            existing.Description = product.Description;
-            existing.InitialPrice = product.InitialPrice;
-            existing.StartDate = product.StartDate;
-            existing.EndDate = product.EndDate;
-            existing.Photo = product.Photo;
-            existing.Category = product.Category;
-            existing.productState = product.productState;
+            existing.Title = dto.Title;
+            existing.Description = dto.Description;
+            existing.InitialPrice = dto.InitialPrice;
+            existing.StartDate = dto.StartDate;
+            existing.EndDate = dto.EndDate;
+            existing.Photo = dto.Photo;
+            existing.Category = dto.Category;
+            existing.productState = dto.productState;
 
             await _context.SaveChangesAsync();
-
-            return Ok(new
-            {
-                isSuccess = true,
-                data = existing
-            });
+            return Ok(new { isSuccess = true, data = existing });
         }
 
         // =========================================
