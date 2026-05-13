@@ -37,7 +37,7 @@ namespace ApiPujas.Controllers
 
             // URL del endpoint de la API de Bizum para inicializar el pago
             var bizumApiUrl = "/api/v1/Bizum/InitBizumPayment";
-            var fullUrl = "http://localhost:5000" + bizumApiUrl;
+            var fullUrl = "http://localhost:5001" + bizumApiUrl;
 
             // Serializa el objeto request a JSON para enviarlo en la solicitud
             var requestBody = JsonSerializer.Serialize(request);
