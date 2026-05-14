@@ -6,13 +6,31 @@ using System.Text.Json.Serialization;
 
 namespace ApiPujas
 {
+    /// <summary>
+    /// Punto de entrada de la aplicación. Configura y arranca el servidor ASP.NET Core
+    /// con todos los servicios, middlewares y endpoints necesarios para la API de subastas.
+    /// </summary>
     public class Program
     {
+
+        /// <summary>
+        /// Método principal que construye y ejecuta la aplicación.
+        /// El pipeline de configuración sigue este orden:
+        /// <list type="number">
+        ///   <item><description><b>DbContext</b>: SQL Server con reintentos automáticos ante fallos de conexión.</description></item>
+        ///   <item><description><b>HttpClient</b>: Cliente HTTP inyectable, requerido por <c>BizumController</c>.</description></item>
+        ///   <item><description><b>SignalR</b>: Soporte de comunicación en tiempo real para el hub de subastas.</description></item>
+        ///   <item><description><b>CORS</b>: Política <c>AllowAngular</c> que permite peticiones desde <c>http://localhost:4200</c>.</description></item>
+        ///   <item><description><b>Controllers</b>: Serialización de enums como strings en las respuestas JSON.</description></item>
+        ///   <item><description><b>AuctionBackgroundService</b>: Servicio en segundo plano para gestionar el ciclo de vida de las subastas.</description></item>
+        ///   <item><description><b>Swagger</b>: Documentación interactiva de la API, disponible solo en entorno de desarrollo.</description></item>
+        /// </list>
+        /// </summary>
         public static void Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args);
 
-            // 1. DbContext
+            // 1. DbContext y HTTPClient
             builder.Services.AddDbContext<AppDbContext>(options =>
                 options.UseSqlServer(
                     builder.Configuration.GetConnectionString("DefaultConnection"),
@@ -25,8 +43,7 @@ namespace ApiPujas
                     }
                 ));
 
-            // --- NUEVO: Registro de HttpClient para que BizumController funcione ---
-            builder.Services.AddHttpClient(); // <--- AÑADIR ESTA LÍNEA 🚀
+            builder.Services.AddHttpClient(); 
 
             // 2. SignalR
             builder.Services.AddSignalR();
@@ -57,7 +74,7 @@ namespace ApiPujas
 
             var app = builder.Build();
 
-            // Middlewares
+            // 6. Middlewares
             if (app.Environment.IsDevelopment())
             {
                 app.UseSwagger();

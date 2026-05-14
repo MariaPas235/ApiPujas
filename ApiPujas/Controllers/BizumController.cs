@@ -7,6 +7,10 @@ using System.Net.Http;
 namespace ApiPujas.Controllers
 {
 
+    /// <summary>
+    /// Controlador para gestionar pagos a través de Bizum.
+    /// Expone endpoints para iniciar y procesar transacciones mediante la pasarela de pago Bizum.
+    /// </summary>
     [ApiController]
     [Route("api/[controller]")]
     public class BizumController : ControllerBase
@@ -15,7 +19,7 @@ namespace ApiPujas.Controllers
         private readonly HttpClient _httpClient;
 
         /// <summary>
-        /// Constructor del controlador PaymentsController.
+        /// Constructor del controlador BizumController.
         /// </summary>
         /// <param name="httpClientFactory">Factoría para crear instancias de HttpClient.</param>
         public BizumController(IHttpClientFactory httpClientFactory)
@@ -25,33 +29,24 @@ namespace ApiPujas.Controllers
 
         /// <summary>
         /// Endpoint para realizar un pago utilizando Bizum.
+        /// Serializa la solicitud, genera un token HMAC para autenticación y redirige
+        /// al formulario HTML de Bizum en caso de respuesta exitosa.
         /// </summary>
-        /// <param name="request">Datos del pago en formato BizumPaymentRequest.</param>
-        /// <returns>ActionResult que representa el resultado de la operación.</returns>
         [HttpPost("bizum")]
         public async Task<IActionResult> PayWithBizum([FromBody] BizumPaymentRequest request)
         {
-            // Verifica que el modelo recibido sea válido
+ 
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
-            // URL del endpoint de la API de Bizum para inicializar el pago
             var bizumApiUrl = "/api/v1/Bizum/InitBizumPayment";
             var fullUrl = "http://localhost:5001" + bizumApiUrl;
-
-            // Serializa el objeto request a JSON para enviarlo en la solicitud
             var requestBody = JsonSerializer.Serialize(request);
             var content = new StringContent(requestBody, Encoding.UTF8, "application/json");
-
-            // Credenciales necesarias para firmar la petición
             var clientId = "178e124f-a127-49ec-aeeb-d8d1c576ddf8";
             var secretKey = "XjfpOdT+D9uYn40adDA7A0QOtsfT81PO+KEEfsLsqKc=";
-
-            // Genera el token HMAC para autenticación
             var token = HMACHelper.GenerateHmacToken("POST", bizumApiUrl, clientId, secretKey, requestBody);
             Console.WriteLine("Token HMAC generado: " + token);
-
-            // Crea el mensaje HTTP con encabezado de autenticación HMAC
             var requestMessage = new HttpRequestMessage(HttpMethod.Post, fullUrl)
             {
                 Content = content
@@ -60,31 +55,24 @@ namespace ApiPujas.Controllers
 
             try
             {
-                // Envía la solicitud al servidor de Bizum
                 var response = await _httpClient.SendAsync(requestMessage);
                 var responseContent = await response.Content.ReadAsStringAsync();
-
-                // Verifica si la respuesta fue exitosa
                 if (response.IsSuccessStatusCode)
+
                 {
-                    // Comprueba si la respuesta contiene un formulario HTML
                     if (responseContent.Contains("</form>"))
                     {
                         Console.WriteLine("🔥 HTML recibido de Bizum:");
                         Console.WriteLine(responseContent);
-
-                        // Agrega un script para autoenviar el formulario recibido
                         var autoSubmitHtml = responseContent.Replace("</form>", "</form><script>document.forms[0].submit();</script>");
                         return Content(autoSubmitHtml, "text/html");
                     }
                     else
                     {
-                        // Si no contiene formulario, se considera inválido
                         return BadRequest(new { message = "Respuesta de Bizum no contenía formulario HTML.", bizumResponse = responseContent });
                     }
                 }
 
-                // Devuelve error si el código de respuesta no fue exitoso
                 return StatusCode((int)response.StatusCode, new
                 {
                     message = "Error al enviar a Bizum.",
@@ -93,7 +81,6 @@ namespace ApiPujas.Controllers
             }
             catch (HttpRequestException ex)
             {
-                // Manejo de excepciones de red o de conexión
                 return StatusCode(500, new
                 {
                     message = "Excepción al conectar con Bizum.",

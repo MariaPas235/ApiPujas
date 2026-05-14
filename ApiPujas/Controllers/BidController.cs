@@ -8,20 +8,39 @@ using System.Diagnostics;
 
 namespace ApiPujas.Controllers
 {
+
+    /// <summary>
+    /// Controlador para gestionar las pujas sobre productos en subasta.
+    /// Permite consultar el estado actual de una subasta, registrar nuevas pujas
+    /// y obtener el historial de pujas activas de un usuario.
+    /// </summary>
     [ApiController]
     [Route("api/[controller]")]
     public class BidController : ControllerBase
     {
         private readonly AppDbContext _context;
 
+        /// <summary>
+        /// Constructor del controlador BidController.
+        /// </summary>
+        /// <param name="context">Contexto de base de datos de la aplicación.</param>
+
         public BidController(AppDbContext context)
         {
             _context = context;
         }
 
-        // =========================================
-        // CURRENT STATUS (ULTRA OPTIMIZED)
-        // =========================================
+        /// <summary>
+        /// Obtiene el estado actual de la subasta de un producto,
+        /// incluyendo el precio más alto alcanzado y el nombre del último pujador.
+        /// </summary>
+        /// <param name="productId">Identificador único del producto.</param>
+        /// <returns>
+        /// <list type="bullet">
+        ///   <item><description><c>200 OK</c>: Precio inicial si no hay pujas, o precio actual y nombre del último pujador.</description></item>
+        ///   <item><description><c>404 Not Found</c>: El producto no existe.</description></item>
+        /// </list>
+        /// </returns>
         [HttpGet("status/{productId}")]
         public async Task<IActionResult> GetStatus(int productId)
         {
@@ -65,9 +84,19 @@ namespace ApiPujas.Controllers
             });
         }
 
-        // =========================================
-        // CREATE BID (SAFE + FAST)
-        // =========================================
+        /// <summary>
+        /// Registra una nueva puja sobre un producto en subasta.
+        /// Valida que el producto exista, que la subasta esté activa y no haya finalizado,
+        /// y que el importe ofertado supere la puja más alta actual.
+        /// </summary>
+        /// <param name="dto">Datos de la puja: identificador de producto, comprador e importe.</param>
+        /// <returns>
+        /// <list type="bullet">
+        ///   <item><description><c>200 OK</c>: Puja registrada correctamente, devuelve <c>isSuccess</c> y los datos de la puja.</description></item>
+        ///   <item><description><c>400 Bad Request</c>: Subasta inactiva, finalizada o importe insuficiente.</description></item>
+        ///   <item><description><c>404 Not Found</c>: El producto no existe.</description></item>
+        /// </list>
+        /// </returns>
         [HttpPost]
         public async Task<IActionResult> CreateBid([FromBody] CreateBidDto dto)
         {
@@ -116,9 +145,17 @@ namespace ApiPujas.Controllers
             });
         }
 
-        // =========================================
-        // USER BIDS (FAST VERSION 🚀)
-        // =========================================
+        /// <summary>
+        /// Obtiene todas las pujas activas de un usuario agrupadas por producto,
+        /// devolviendo únicamente la puja más alta de cada subasta en curso.
+        /// </summary>
+        /// <param name="userId">Identificador único del usuario comprador.</param>
+        /// <returns>
+        /// <list type="bullet">
+        ///   <item><description><c>200 OK</c>: Lista de productos con subasta activa en los que el usuario ha pujado,
+        ///   ordenada por fecha de finalización descendente.</description></item>
+        /// </list>
+        /// </returns>
         [HttpGet("user-bids/{userId}")]
         public async Task<IActionResult> GetUserBids(int userId)
         {
@@ -144,8 +181,6 @@ namespace ApiPujas.Controllers
              .ToListAsync();
 
             stopwatch.Stop();
-            Console.WriteLine($"⏱️ USER BIDS QUERY: {stopwatch.ElapsedMilliseconds} ms");
-
             return Ok(result);
         }
     }

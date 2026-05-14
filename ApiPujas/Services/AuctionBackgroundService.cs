@@ -14,12 +14,31 @@ using System.Threading.Tasks;
 
 namespace ApiPujas.Services
 {
+    /// <summary>
+    /// Servicio en segundo plano que gestiona el ciclo de vida automático de las subastas.
+    /// Se ejecuta cada 10 segundos y realiza tres operaciones principales:
+    /// activar subastas programadas, cerrar subastas vencidas y generar la compra del ganador.
+    /// </summary>
     public class AuctionBackgroundService : BackgroundService
     {
+        /// <summary>
+        /// Fábrica de scopes para resolver servicios con ciclo de vida Scoped (como AppDbContext).
+        /// </summary>
         private readonly IServiceScopeFactory _scopeFactory;
+
+        /// <summary>
+        /// Logger para registrar el estado y errores del servicio.
+        /// </summary>
         private readonly ILogger<AuctionBackgroundService> _logger;
+
+        /// <summary>
+        /// Contexto de SignalR para notificar en tiempo real a los clientes conectados.
+        /// </summary>
         private readonly IHubContext<AuctionHub> _hubContext;
 
+        /// <summary>
+        /// Inicializa el servicio con sus dependencias necesarias.
+        /// </summary>
         public AuctionBackgroundService(
             IServiceScopeFactory scopeFactory,
             ILogger<AuctionBackgroundService> logger,
@@ -30,6 +49,10 @@ namespace ApiPujas.Services
             _hubContext = hubContext;
         }
 
+        /// <summary>
+        /// Genera un número de orden único de 12 caracteres combinando la fecha actual y un sufijo aleatorio.
+        /// </summary>
+        /// <returns>Cadena de 12 caracteres usada como número de orden.</returns>
         private static string GenerateOrderNumber()
         {
             var now = DateTime.UtcNow;
@@ -37,6 +60,17 @@ namespace ApiPujas.Services
             return $"{now:MMdd}{suffix:D8}".Substring(0, 12);
         }
 
+        // <summary>
+        /// Bucle principal del servicio. Se ejecuta cada 10 segundos mientras la aplicación esté activa.
+        /// En cada ciclo:
+        /// <list type="bullet">
+        ///   <item><description>Activa productos en estado <see cref="ProductState.Scheduled"/> cuya <c>StartDate</c> ya ha llegado.</description></item>
+        ///   <item><description>Cierra productos en estado <see cref="ProductState.Active"/> cuya <c>EndDate</c> ha expirado.</description></item>
+        ///   <item><description>Genera una <see cref="Purchase"/> en estado <see cref="PurchaseState.Pending"/> para el comprador con la puja más alta.</description></item>
+        ///   <item><description>Notifica a todos los clientes conectados vía SignalR si hubo cambios de estado.</description></item>
+        /// </list>
+        /// </summary>
+        /// <param name="stoppingToken">Token de cancelación que detiene el servicio al apagar la aplicación.</param>
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             _logger.LogInformation("[AuctionService] Iniciado a {time}", DateTime.UtcNow);
@@ -76,9 +110,7 @@ namespace ApiPujas.Services
                     {
                         product.productState = ProductState.Closed;
                     }
-
-                    // ✅ Guardamos activaciones y cierres ANTES de crear purchases
-                    // Así el siguiente ciclo ya no ve estos productos como Active
+                                  
                     await context.SaveChangesAsync(stoppingToken);
 
                     // =========================
